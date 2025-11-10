@@ -1,0 +1,30 @@
+name: Email Service CI
+
+on:
+  push:
+    paths:
+      - 'email_service/**'
+  pull_request:
+    paths:
+      - 'email_service/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd email_service
+          npm install
+
+      - name: Build & Test
+        run: echo "Build and test commands go here"

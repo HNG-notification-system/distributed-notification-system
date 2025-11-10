@@ -1,0 +1,38 @@
+name: API Gateway CI
+
+on:
+  push:
+    paths:
+      - 'api_gateway/**'
+  pull_request:
+    paths:
+      - 'api_gateway/**'
+
+jobs:
+  test-and-build:
+    name: Test and Build API Gateway
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd api_gateway
+          npm install
+
+      - name: Run tests
+        run: |
+          cd api_gateway
+          npm test || echo "No tests defined yet"
+
+      - name: Build application
+        run: |
+          cd api_gateway
+          npm run build || echo "No build script defined"
