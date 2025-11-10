@@ -1,0 +1,68 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// TEMPLATE MODEL (Main table)
+model Template {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(200)
+  slug       String   @unique @db.VarChar(100)
+  
+  // Type of template (EMAIL, PUSH, SMS)
+  type       TemplateType
+  
+  subject    String   @db.Text
+  body       String   @db.Text
+  
+  // Variables used in template (stored as JSON array)
+  // Example: ["name", "company_name", "verification_link"]
+  variables  Json?    @db.JsonB  
+  language   String   @default("en") @db.VarChar(10)  
+  is_active  Boolean  @default(true)  
+  created_by String?  @db.VarChar(100)
+  updated_by String?  @db.VarChar(100)  
+  metadata   Json?    @db.JsonB
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+  
+  versions   TemplateVersion[]
+  
+  @@index([slug])
+  @@index([type])
+  @@index([language])
+  @@index([is_active])
+  
+  @@map("templates")
+}
+
+// TEMPLATE VERSION MODEL (Version history)
+model TemplateVersion {
+  id          String   @id @default(uuid()) @db.Uuid  
+  template_id String   @db.Uuid
+  template    Template @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  version     Int
+  subject     String   @db.Text
+  body        String   @db.Text
+  variables   Json?    @db.JsonB  
+  changed_by     String?  @db.VarChar(100)
+  change_reason  String?  @db.Text  
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  
+  @@index([template_id])
+  @@index([version])
+
+  @@unique([template_id, version])
+  
+  @@map("template_versions")
+}
+
+enum TemplateType {
+  EMAIL
+  PUSH
+  SMS
+}
