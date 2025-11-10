@@ -288,8 +288,8 @@ Access RabbitMQ Management UI:
 
 ```
 http://localhost:15672
-Username: admin
-Password: admin123
+Username: RABBITMQ_USER
+Password: RABBITMQ_PASS
 ```
 
 ## Deployment

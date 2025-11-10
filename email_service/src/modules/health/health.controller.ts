@@ -18,15 +18,14 @@ export class HealthController {
   async health(): Promise<ApiResponse<HealthCheckResponse>> {
     try {
       // Check all service dependencies
-      const [rabbitmqHealthy, templateServiceHealthy, smtpHealthy] =
-        await Promise.all([
-          Promise.resolve(this.queueService.isHealthy()),
-          this.templateService.healthCheck().catch(() => false),
-          this.emailService.healthCheck().catch(() => false),
-        ]);
+      const [rabbitmqHealthy, templateServiceHealthy, smtpHealthy] = await Promise.all([
+        Promise.resolve(this.queueService.isHealthy()),
+        this.templateService.healthCheck().catch(() => false),
+        this.emailService.healthCheck().catch(() => false),
+      ]);
 
-      const allHealthy =
-        rabbitmqHealthy && templateServiceHealthy && smtpHealthy;
+      // Template Service is optional for now
+      const allHealthy = rabbitmqHealthy && smtpHealthy;
 
       const response: HealthCheckResponse = {
         status: allHealthy ? 'healthy' : 'unhealthy',

@@ -40,8 +40,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     );
     const emailQueue = this.configService.get<string>('EMAIL_QUEUE', 'email.queue');
     const failedQueue = this.configService.get<string>('FAILED_QUEUE', 'failed.queue');
-    const prefetchCount = this.configService.get<number>('PREFETCH_COUNT', 10);
-
+    const prefetchCount = parseInt(this.configService.get('PREFETCH_COUNT', '10'), 10);
     // Sanitize URL for logs to avoid leaking credentials
     try {
       const parsed = new URL(rabbitmqUrl);
