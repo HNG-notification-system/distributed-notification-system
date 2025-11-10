@@ -1,0 +1,60 @@
+name: Microservices CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+  pull_request:
+    paths:
+      - "services/**"
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_services_json: ${{ steps.detect.outputs.services_json }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect changed services
+        id: detect
+        run: |
+          echo "Detecting changed services..."
+
+          # Detect services under services/ folder
+          CHANGED_SERVICES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^services/' | cut -d/ -f2 | sort | uniq)
+
+          if [ -z "$CHANGED_SERVICES" ]; then
+            echo "No service changes detected"
+            echo "services_json=[]" >> $GITHUB_OUTPUT
+          else
+            # Convert to JSON array
+            JSON=$(echo $CHANGED_SERVICES | jq -R -s -c 'split("\n")[:-1]')
+            echo "Detected services JSON: $JSON"
+            echo "services_json=$JSON" >> $GITHUB_OUTPUT
+
+  build:
+    runs-on: ubuntu-latest
+    needs: detect
+    if: ${{ needs.detect.outputs.changed_services_json != '[]' }}
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect.outputs.changed_services_json) }}
+    env:
+      SERVICE: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image for $SERVICE..."
+          cd services/$SERVICE
+          docker build -t internship/${SERVICE}:latest -t internship/${SERVICE}:${GITHUB_SHA} .
+      - name: Run tests
+        run: |
+          echo "Running tests for $SERVICE..."
+          cd services/$SERVICE
+          # Replace with real test commands: pytest, npm test, go test ./...
+          echo ":white_check_mark: Tests completed"
+      - name: Deploy (optional)
+        run: |
+          echo "Deploying $SERVICE (placeholder)"
