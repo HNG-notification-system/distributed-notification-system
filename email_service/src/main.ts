@@ -40,6 +40,15 @@ async function bootstrap() {
 
   await app.listen(port);
 
+  const baseUrl = `http://localhost:${port}`;
+  const healthUrl = `${baseUrl}/health`;
+  const statusUrl = `${baseUrl}/status`;
+  const readyUrl = `${baseUrl}/ready`;
+  const liveUrl = `${baseUrl}/live`;
+
+  // Choose a consistent column width for the URL column so banner stays aligned
+  const urlColumnWidth = 48;
+
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
@@ -49,10 +58,10 @@ async function bootstrap() {
 ║  🌐  Port: ${String(port).padEnd(48)}║
 ║  📝  Environment: ${configService.get<string>('NODE_ENV', 'development').padEnd(40)}║
 ║                                                           ║
-║  Health Check: http://localhost:${port}/health${' '.repeat(19)}║
-║  Status: http://localhost:${port}/status${' '.repeat(23)}║
-║  Ready: http://localhost:${port}/ready${' '.repeat(24)}║
-║  Live: http://localhost:${port}/live${' '.repeat(25)}║
+║  Health Check: ${healthUrl.padEnd(urlColumnWidth)}║
+║  Status:       ${statusUrl.padEnd(urlColumnWidth)}║
+║  Ready:        ${readyUrl.padEnd(urlColumnWidth)}║
+║  Live:         ${liveUrl.padEnd(urlColumnWidth)}║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);

@@ -4,6 +4,8 @@ import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
 import { EmailPayload, EmailResult } from '../../common/dto';
 import { CircuitBreaker } from '../../common/utils/circuit-breaker';
+import axios from 'axios';
+import * as FormData from 'form-data';
 
 @Injectable()
 export class EmailService {
@@ -45,7 +47,8 @@ export class EmailService {
   async sendEmail(
     payload: EmailPayload,
     notificationId: string,
-    correlationId?: string
+    correlationId?: string,
+    retryCount: number = 0,
   ): Promise<EmailResult> {
     try {
       const result = await this.smtpCircuitBreaker.execute(async () => {
@@ -81,7 +84,7 @@ export class EmailService {
           success: true,
           notification_id: notificationId,
           message_id: messageId,
-          retry_count: 0,
+          retry_count: retryCount,
           delivered_at: new Date(),
         };
       });
@@ -98,7 +101,7 @@ export class EmailService {
         success: false,
         notification_id: notificationId,
         error: error.message,
-        retry_count: 0,
+        retry_count: retryCount,
       };
     }
   }
@@ -123,10 +126,9 @@ export class EmailService {
   }
 
   private async sendViaSendGrid(payload: EmailPayload): Promise<string> {
-    const axios = require('axios');
-    const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
-    const fromEmail = this.configService.get<string>('FROM_EMAIL');
-    const fromName = this.configService.get<string>('FROM_NAME');
+    const apiKey = this.configService.get<string>('SENDGRID_API_KEY', '');
+    const fromEmail = this.configService.get<string>('FROM_EMAIL', 'noreply@yourapp.com');
+    const fromName = this.configService.get<string>('FROM_NAME', 'YourApp');
 
     const response = await axios.post(
       'https://api.sendgrid.com/v3/mail/send',
@@ -153,20 +155,17 @@ export class EmailService {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
 
     return response.headers['x-message-id'] || 'sendgrid-' + Date.now();
   }
 
   private async sendViaMailgun(payload: EmailPayload): Promise<string> {
-    const axios = require('axios');
-    const FormData = require('form-data');
-    
-    const apiKey = this.configService.get<string>('MAILGUN_API_KEY');
-    const domain = this.configService.get<string>('MAILGUN_DOMAIN');
-    const fromEmail = this.configService.get<string>('FROM_EMAIL');
-    const fromName = this.configService.get<string>('FROM_NAME');
+    const apiKey = this.configService.get<string>('MAILGUN_API_KEY', '');
+    const domain = this.configService.get<string>('MAILGUN_DOMAIN', '');
+    const fromEmail = this.configService.get<string>('FROM_EMAIL', 'noreply@yourapp.com');
+    const fromName = this.configService.get<string>('FROM_NAME', 'YourApp');
 
     const form = new FormData();
     form.append('from', `${fromName} <${fromEmail}>`);
@@ -177,17 +176,13 @@ export class EmailService {
       form.append('text', payload.text);
     }
 
-    const response = await axios.post(
-      `https://api.mailgun.net/v3/${domain}/messages`,
-      form,
-      {
-        auth: {
-          username: 'api',
-          password: apiKey,
-        },
-        headers: form.getHeaders(),
-      }
-    );
+    const response = await axios.post(`https://api.mailgun.net/v3/${domain}/messages`, form, {
+      auth: {
+        username: 'api',
+        password: apiKey || '',
+      },
+      headers: form.getHeaders(),
+    });
 
     return response.data.id;
   }
@@ -223,9 +218,10 @@ export class EmailService {
   getProviderInfo(): { provider: string; configured: boolean } {
     return {
       provider: this.provider,
-      configured: this.transporter !== null || 
-                 !!this.configService.get('SENDGRID_API_KEY') || 
-                 !!this.configService.get('MAILGUN_API_KEY'),
+      configured:
+        this.transporter !== null ||
+        !!this.configService.get('SENDGRID_API_KEY') ||
+        !!this.configService.get('MAILGUN_API_KEY'),
     };
   }
 

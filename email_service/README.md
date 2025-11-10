@@ -106,6 +106,7 @@ docker-compose up -d
 ```
 
 This starts:
+
 - RabbitMQ (port 5672, management UI at 15672)
 - Email Service (port 3002)
 
@@ -167,11 +168,13 @@ The service expects messages in this format:
 ## API Endpoints
 
 ### Health Check
+
 ```bash
 GET /health
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -192,16 +195,19 @@ Response:
 ```
 
 ### Detailed Status
+
 ```bash
 GET /status
 ```
 
 ### Readiness Probe
+
 ```bash
 GET /ready
 ```
 
 ### Liveness Probe
+
 ```bash
 GET /live
 ```
@@ -210,19 +216,19 @@ GET /live
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | HTTP server port | `3002` |
-| `RABBITMQ_URL` | RabbitMQ connection URL | `amqp://localhost:5672` |
-| `EMAIL_QUEUE` | Email queue name | `email.queue` |
-| `FAILED_QUEUE` | Dead letter queue name | `failed.queue` |
-| `SMTP_HOST` | SMTP server host | `smtp.gmail.com` |
-| `SMTP_PORT` | SMTP server port | `587` |
-| `SMTP_USER` | SMTP username — REQUIRED in production (docker-compose provides safe local defaults `dev@example.com`) | - |
-| `SMTP_PASSWORD` | SMTP password — REQUIRED in production (docker-compose provides safe local defaults `devpassword`) | - |
-| `TEMPLATE_SERVICE_URL` | Template service endpoint | `http://localhost:3005` |
-| `MAX_RETRY_ATTEMPTS` | Max retry attempts | `3` |
-| `CIRCUIT_BREAKER_THRESHOLD` | Circuit breaker threshold | `5` |
+| Variable                    | Description                                                                                            | Default                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `PORT`                      | HTTP server port                                                                                       | `3002`                  |
+| `RABBITMQ_URL`              | RabbitMQ connection URL                                                                                | `amqp://localhost:5672` |
+| `EMAIL_QUEUE`               | Email queue name                                                                                       | `email.queue`           |
+| `FAILED_QUEUE`              | Dead letter queue name                                                                                 | `failed.queue`          |
+| `SMTP_HOST`                 | SMTP server host                                                                                       | `smtp.gmail.com`        |
+| `SMTP_PORT`                 | SMTP server port                                                                                       | `587`                   |
+| `SMTP_USER`                 | SMTP username — REQUIRED in production (docker-compose provides safe local defaults `dev@example.com`) | -                       |
+| `SMTP_PASSWORD`             | SMTP password — REQUIRED in production (docker-compose provides safe local defaults `devpassword`)     | -                       |
+| `TEMPLATE_SERVICE_URL`      | Template service endpoint                                                                              | `http://localhost:3005` |
+| `MAX_RETRY_ATTEMPTS`        | Max retry attempts                                                                                     | `3`                     |
+| `CIRCUIT_BREAKER_THRESHOLD` | Circuit breaker threshold                                                                              | `5`                     |
 
 ### Gmail Setup
 
@@ -250,6 +256,7 @@ The service implements circuit breaker pattern using dependency injection:
 - **Template Service** - Opens after 5 consecutive failures
 
 States:
+
 - **CLOSED**: Normal operation
 - **OPEN**: Service unavailable, requests fail fast
 - **HALF_OPEN**: Testing if service recovered
@@ -259,7 +266,7 @@ States:
 Exponential backoff retry with jitter:
 
 | Attempt | Delay |
-|---------|-------|
+| ------- | ----- |
 | 1st     | 1s    |
 | 2nd     | 2s    |
 | 3rd     | 4s    |
@@ -271,12 +278,14 @@ After 3 failed attempts, message moves to `failed.queue`.
 ### Logs
 
 Logs are written to:
+
 - `logs/combined.log` - All logs
 - `logs/error.log` - Error logs only
 
 ### Queue Monitoring
 
 Access RabbitMQ Management UI:
+
 ```
 http://localhost:15672
 Username: admin
@@ -306,12 +315,14 @@ docker run -d \
 ### CI/CD
 
 The service includes GitHub Actions workflow that:
+
 1. Runs linting and tests
 2. Builds Docker image
 3. Pushes to GitHub Container Registry
 4. Deploys to server via SSH
 
 Required secrets:
+
 - `SERVER_HOST`
 - `SERVER_USER`
 - `SSH_PRIVATE_KEY`
@@ -322,6 +333,7 @@ Required secrets:
 ### Modules
 
 Each feature is organized into a module:
+
 - **EmailModule** - Email sending logic
 - **TemplateModule** - Template fetching
 - **QueueModule** - RabbitMQ consumer
@@ -342,6 +354,7 @@ constructor(
 ### Lifecycle Hooks
 
 Services use lifecycle hooks:
+
 - `OnModuleInit` - Initialize connections
 - `OnModuleDestroy` - Cleanup resources
 

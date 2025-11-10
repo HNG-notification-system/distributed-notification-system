@@ -18,7 +18,7 @@ export class RetryHandler {
 
   async execute<T>(
     fn: () => Promise<T>,
-    context?: { notification_id?: string; correlation_id?: string }
+    context?: { notification_id?: string; correlation_id?: string },
   ): Promise<T> {
     let lastError: Error | null = null;
     let attempt = 0;
@@ -26,22 +26,16 @@ export class RetryHandler {
     while (attempt < this.config.max_attempts) {
       try {
         attempt++;
-        
+
         if (attempt > 1) {
-          this.logger.log(
-            `Retry attempt ${attempt}/${this.config.max_attempts}`,
-            context
-          );
+          this.logger.log(`Retry attempt ${attempt}/${this.config.max_attempts}`, context);
         }
 
         return await fn();
       } catch (error) {
         lastError = error as Error;
-        
-        this.logger.warn(
-          `Attempt ${attempt} failed: ${lastError.message}`,
-          context
-        );
+
+        this.logger.warn(`Attempt ${attempt} failed: ${lastError.message}`, context);
 
         // Don't retry if it's the last attempt
         if (attempt >= this.config.max_attempts) {
@@ -50,38 +44,33 @@ export class RetryHandler {
 
         // Calculate delay with exponential backoff
         const delay = this.calculateDelay(attempt);
-        
-        this.logger.log(
-          `Waiting ${delay}ms before retry...`,
-          context
-        );
+
+        this.logger.log(`Waiting ${delay}ms before retry...`, context);
 
         await this.sleep(delay);
       }
     }
 
     // All attempts failed
-    this.logger.error(
-      `All ${this.config.max_attempts} retry attempts failed`,
-      { ...context, error: lastError?.message }
-    );
+    this.logger.error(`All ${this.config.max_attempts} retry attempts failed`, {
+      ...context,
+      error: lastError?.message,
+    });
 
     throw lastError || new Error('All retry attempts failed');
   }
 
   private calculateDelay(attempt: number): number {
     // Exponential backoff: initial_delay * (multiplier ^ (attempt - 1))
-    const exponentialDelay = this.config.initial_delay * Math.pow(
-      this.config.multiplier,
-      attempt - 1
-    );
+    const exponentialDelay =
+      this.config.initial_delay * Math.pow(this.config.multiplier, attempt - 1);
 
     // Cap at max_delay
     const cappedDelay = Math.min(exponentialDelay, this.config.max_delay);
 
     // Add jitter (±20%) to prevent thundering herd
-    const jitter = cappedDelay * 0.2 * (Math.random() - 0.5);
-    
+    const jitter = cappedDelay * 0.4 * (Math.random() - 0.5);
+
     return Math.floor(cappedDelay + jitter);
   }
 
