@@ -1,0 +1,235 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+import { Transporter } from 'nodemailer';
+import { EmailPayload, EmailResult } from '../../common/dto';
+import { CircuitBreaker } from '../../common/utils/circuit-breaker';
+
+@Injectable()
+export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: Transporter | null = null;
+  private provider: 'smtp' | 'sendgrid' | 'mailgun' = 'smtp';
+  private smtpCircuitBreaker: CircuitBreaker;
+
+  constructor(private configService: ConfigService) {
+    this.smtpCircuitBreaker = new CircuitBreaker('SMTP', configService);
+    this.initializeTransporter();
+  }
+
+  private initializeTransporter(): void {
+    const sendgridKey = this.configService.get<string>('SENDGRID_API_KEY');
+    const mailgunKey = this.configService.get<string>('MAILGUN_API_KEY');
+
+    if (sendgridKey) {
+      this.provider = 'sendgrid';
+      this.logger.log('Initialized SendGrid email provider');
+    } else if (mailgunKey) {
+      this.provider = 'mailgun';
+      this.logger.log('Initialized Mailgun email provider');
+    } else {
+      this.provider = 'smtp';
+      this.transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('SMTP_HOST'),
+        port: this.configService.get<number>('SMTP_PORT'),
+        secure: this.configService.get<boolean>('SMTP_SECURE'),
+        auth: {
+          user: this.configService.get<string>('SMTP_USER'),
+          pass: this.configService.get<string>('SMTP_PASSWORD'),
+        },
+      });
+      this.logger.log('Initialized SMTP email provider');
+    }
+  }
+
+  async sendEmail(
+    payload: EmailPayload,
+    notificationId: string,
+    correlationId?: string
+  ): Promise<EmailResult> {
+    try {
+      const result = await this.smtpCircuitBreaker.execute(async () => {
+        this.logger.log(`Sending email to ${payload.to}`, {
+          notification_id: notificationId,
+          correlation_id: correlationId,
+          provider: this.provider,
+        });
+
+        let messageId: string;
+
+        switch (this.provider) {
+          case 'smtp':
+            messageId = await this.sendViaSMTP(payload);
+            break;
+          case 'sendgrid':
+            messageId = await this.sendViaSendGrid(payload);
+            break;
+          case 'mailgun':
+            messageId = await this.sendViaMailgun(payload);
+            break;
+          default:
+            throw new Error(`Unknown email provider: ${this.provider}`);
+        }
+
+        this.logger.log(`Email sent successfully to ${payload.to}`, {
+          notification_id: notificationId,
+          correlation_id: correlationId,
+          message_id: messageId,
+        });
+
+        return {
+          success: true,
+          notification_id: notificationId,
+          message_id: messageId,
+          retry_count: 0,
+          delivered_at: new Date(),
+        };
+      });
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`Failed to send email to ${payload.to}`, {
+        notification_id: notificationId,
+        correlation_id: correlationId,
+        error: error.message,
+      });
+
+      return {
+        success: false,
+        notification_id: notificationId,
+        error: error.message,
+        retry_count: 0,
+      };
+    }
+  }
+
+  private async sendViaSMTP(payload: EmailPayload): Promise<string> {
+    if (!this.transporter) {
+      throw new Error('SMTP transporter not initialized');
+    }
+
+    const fromEmail = this.configService.get<string>('FROM_EMAIL');
+    const fromName = this.configService.get<string>('FROM_NAME');
+
+    const info = await this.transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+    });
+
+    return info.messageId;
+  }
+
+  private async sendViaSendGrid(payload: EmailPayload): Promise<string> {
+    const axios = require('axios');
+    const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
+    const fromEmail = this.configService.get<string>('FROM_EMAIL');
+    const fromName = this.configService.get<string>('FROM_NAME');
+
+    const response = await axios.post(
+      'https://api.sendgrid.com/v3/mail/send',
+      {
+        personalizations: [
+          {
+            to: [{ email: payload.to }],
+            subject: payload.subject,
+          },
+        ],
+        from: {
+          email: fromEmail,
+          name: fromName,
+        },
+        content: [
+          {
+            type: 'text/html',
+            value: payload.html,
+          },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.headers['x-message-id'] || 'sendgrid-' + Date.now();
+  }
+
+  private async sendViaMailgun(payload: EmailPayload): Promise<string> {
+    const axios = require('axios');
+    const FormData = require('form-data');
+    
+    const apiKey = this.configService.get<string>('MAILGUN_API_KEY');
+    const domain = this.configService.get<string>('MAILGUN_DOMAIN');
+    const fromEmail = this.configService.get<string>('FROM_EMAIL');
+    const fromName = this.configService.get<string>('FROM_NAME');
+
+    const form = new FormData();
+    form.append('from', `${fromName} <${fromEmail}>`);
+    form.append('to', payload.to);
+    form.append('subject', payload.subject);
+    form.append('html', payload.html);
+    if (payload.text) {
+      form.append('text', payload.text);
+    }
+
+    const response = await axios.post(
+      `https://api.mailgun.net/v3/${domain}/messages`,
+      form,
+      {
+        auth: {
+          username: 'api',
+          password: apiKey,
+        },
+        headers: form.getHeaders(),
+      }
+    );
+
+    return response.data.id;
+  }
+
+  async verifyConnection(): Promise<boolean> {
+    if (this.provider !== 'smtp' || !this.transporter) {
+      return true;
+    }
+
+    try {
+      await this.transporter.verify();
+      this.logger.log('SMTP connection verified successfully');
+      return true;
+    } catch (error: any) {
+      this.logger.error('SMTP connection verification failed', {
+        error: error.message,
+      });
+      return false;
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      if (this.provider === 'smtp') {
+        return await this.verifyConnection();
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  getProviderInfo(): { provider: string; configured: boolean } {
+    return {
+      provider: this.provider,
+      configured: this.transporter !== null || 
+                 !!this.configService.get('SENDGRID_API_KEY') || 
+                 !!this.configService.get('MAILGUN_API_KEY'),
+    };
+  }
+
+  getCircuitBreakerState() {
+    return this.smtpCircuitBreaker.getState();
+  }
+}

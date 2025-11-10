@@ -44,11 +44,13 @@ services:
       PREFETCH_COUNT: 10
 
       # SMTP (Use your own credentials)
+      # NOTE: SMTP_USER and SMTP_PASSWORD are required in production. For local development we provide safe defaults below
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      # Local development defaults (override via environment or .env in production)
+      SMTP_USER: ${SMTP_USER:-dev@example.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-devpassword}
       FROM_EMAIL: ${FROM_EMAIL:-noreply@yourapp.com}
       FROM_NAME: ${FROM_NAME:-YourApp}
 

@@ -218,8 +218,8 @@ GET /live
 | `FAILED_QUEUE` | Dead letter queue name | `failed.queue` |
 | `SMTP_HOST` | SMTP server host | `smtp.gmail.com` |
 | `SMTP_PORT` | SMTP server port | `587` |
-| `SMTP_USER` | SMTP username | - |
-| `SMTP_PASSWORD` | SMTP password | - |
+| `SMTP_USER` | SMTP username — REQUIRED in production (docker-compose provides safe local defaults `dev@example.com`) | - |
+| `SMTP_PASSWORD` | SMTP password — REQUIRED in production (docker-compose provides safe local defaults `devpassword`) | - |
 | `TEMPLATE_SERVICE_URL` | Template service endpoint | `http://localhost:3005` |
 | `MAX_RETRY_ATTEMPTS` | Max retry attempts | `3` |
 | `CIRCUIT_BREAKER_THRESHOLD` | Circuit breaker threshold | `5` |
