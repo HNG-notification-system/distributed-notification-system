@@ -1,4 +1,4 @@
-.PHONY: help install dev build start test lint format docker-build docker-up docker-down logs clean
+.PHONY: help install dev build start test lint format docker-build docker-up docker-down logs clean docker-restart logs-rabbitmq send-test health status rabbitmq-ui
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -49,10 +49,10 @@ send-test: ## Send test message to queue
 	node scripts/send-test-message.js
 
 health: ## Check service health
-	curl http://localhost:3002/health | jq
+	curl -sS http://localhost:3002/health
 
 status: ## Get detailed status
-	curl http://localhost:3002/status | jq
+	curl -sS http://localhost:3002/status
 
 clean: ## Clean build artifacts and logs
 	rm -rf dist node_modules logs/*.log
