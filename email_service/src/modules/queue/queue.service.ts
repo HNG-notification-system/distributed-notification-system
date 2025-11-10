@@ -144,9 +144,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
           // Prepare email payload
           const fromEmail = this.configService.get<string>('FROM_EMAIL');
+          if (!fromEmail) {
+            throw new Error('FROM_EMAIL is required but not configured');
+          }
           const emailPayload: EmailPayload = {
             to: notification.to_email,
-            from: fromEmail!,
+            from: fromEmail,
             subject,
             html: body,
           };
@@ -208,9 +211,11 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       };
 
       const failedQueue = this.configService.get<string>('FAILED_QUEUE');
-
+      if (!failedQueue) {
+        throw new Error('FAILED_QUEUE is required but not configured');
+      }
       await this.channelWrapper.sendToQueue(
-        failedQueue!,
+        failedQueue,
         Buffer.from(JSON.stringify(failedMessage)),
         { persistent: true },
       );
