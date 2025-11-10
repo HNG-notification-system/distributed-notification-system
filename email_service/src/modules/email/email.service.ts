@@ -5,7 +5,7 @@ import { Transporter } from 'nodemailer';
 import { EmailPayload, EmailResult } from '../../common/dto';
 import { CircuitBreaker } from '../../common/utils/circuit-breaker';
 import axios from 'axios';
-import * as FormData from 'form-data';
+import FormData = require('form-data');
 
 @Injectable()
 export class EmailService {
