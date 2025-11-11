@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: template-postgres
@@ -21,11 +18,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: template-redis
-    command: redis-server --appendonly yes
     ports:
       - '6379:6379'
     volumes:
@@ -38,12 +33,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # Template Service
   template-service:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
+      args:
+        DATABASE_URL: postgresql://postgres:postgres@postgres:5432/template_service_db
+      network: host  # This line is correct
     container_name: template-service
     ports:
       - '3003:3003'

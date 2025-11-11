@@ -11,8 +11,9 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.setGlobalPrefix('api/v1');
     app.enableCors({
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-        credentials: true,
+        origin: ['http://localhost:3000', 'http://localhost:3001'],
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        allowedHeaders: 'Content-Type, Accept, Authorization, x-service-key, x-user-role',
     });
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
@@ -24,16 +25,48 @@ async function bootstrap() {
     }));
     app.useGlobalInterceptors(new transform_interceptor_1.TransformInterceptor());
     app.useGlobalFilters(new http_exception_filters_1.HttpExceptionFilter());
+    const apiDescription = process.env.API_DESCRIPTION ||
+        `Template Service API for managing notification templates
+
+## 🔐 Authentication
+- **Internal Services**: Use \`x-service-key\` header
+- **Admin Users**: Use API Gateway headers (\`x-user-role\`, \`x-auth-verified\`, \`x-user-id\`)
+
+## 📋 Role Access
+- **Admin**: Full access to all operations
+- **Editor**: Can update and view templates  
+- **Viewer**: Can view templates only
+- **Internal Services**: Can preview templates
+`;
     const config = new swagger_1.DocumentBuilder()
         .setTitle(process.env.API_TITLE || 'Template Service API')
-        .setDescription(process.env.API_DESCRIPTION || 'Notification template management service')
+        .setDescription(apiDescription)
         .setVersion(process.env.API_VERSION || '1.0.0')
-        .addTag('Templates', 'Template CRUD operations')
-        .addTag('Health', 'Service health checks')
-        .addTag('Root', 'Service information')
+        .addTag('Templates', 'Template CRUD operations - Role-based access required')
+        .addTag('Health', 'Service health checks - No authentication required')
+        .addTag('Root', 'Service information - No authentication required')
+        .addSecurity('serviceKey', {
+        type: 'apiKey',
+        in: 'header',
+        name: 'x-service-key',
+        description: `Internal service key: ${process.env.INTERNAL_SERVICE_KEY ? '***' + process.env.INTERNAL_SERVICE_KEY.slice(-4) : 'Not set'}`,
+    })
+        .addSecurity('adminAuth', {
+        type: 'apiKey',
+        in: 'header',
+        name: 'x-user-role',
+        description: 'Admin access via API Gateway',
+    })
+        .addSecurityRequirements('serviceKey', [])
+        .addSecurityRequirements('adminAuth', [])
+        .addServer(process.env.API_URL || 'http://localhost:3000', process.env.NODE_ENV === 'production' ? 'Production' : 'Development')
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
-    swagger_1.SwaggerModule.setup('api/docs', app, document);
+    swagger_1.SwaggerModule.setup('api/docs', app, document, {
+        swaggerOptions: {
+            persistAuthorization: true,
+        },
+    });
     const port = process.env.PORT || 3003;
     await app.listen(port);
     logger.log(`🚀 Template Service running on: http://localhost:${port}`);
