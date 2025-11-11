@@ -1,0 +1,295 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
+      POSTGRES_DB: ${POSTGRES_DB:-notification_system}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # ==========================================
+  # MICROSERVICES
+  # ==========================================
+
+  # API Gateway (Port 3000)
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: api-gateway
+      
+      # CloudAMQP (Shared across all services)
+      CLOUDAMQP_URL: ${CLOUDAMQP_URL}
+      
+      # Service URLs
+      USER_SERVICE_URL: http://user-service:3001
+      TEMPLATE_SERVICE_URL: http://template-service:3005
+      
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      
+      # Rate Limiting
+      RATE_LIMIT_TTL: ${RATE_LIMIT_TTL:-60}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+    depends_on:
+      user-service:
+        condition: service_started
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # User Service (Port 3001)
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: user-service
+      
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-notification_system}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      
+      # CloudAMQP
+      CLOUDAMQP_URL: ${CLOUDAMQP_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Email Service (Port 3002)
+  email-service:
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile
+    container_name: email-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: email-service
+      
+      # CloudAMQP
+      CLOUDAMQP_URL: ${CLOUDAMQP_URL}
+      EMAIL_QUEUE: email.queue
+      FAILED_QUEUE: failed.queue
+      EXCHANGE_NAME: notifications.direct
+      PREFETCH_COUNT: 10
+      
+      # SMTP
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME:-YourApp}
+      
+      # Template Service
+      TEMPLATE_SERVICE_URL: http://template-service:3005
+      
+      # Circuit Breaker
+      CIRCUIT_BREAKER_THRESHOLD: 5
+      CIRCUIT_BREAKER_TIMEOUT: 60000
+      CIRCUIT_BREAKER_RESET_TIMEOUT: 30000
+      
+      # Retry
+      MAX_RETRY_ATTEMPTS: 3
+      INITIAL_RETRY_DELAY: 1000
+      MAX_RETRY_DELAY: 60000
+      RETRY_MULTIPLIER: 2
+      
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      template-service:
+        condition: service_started
+    volumes:
+      - ./email-service/logs:/app/logs
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Push Service (Port 3003)
+  push-service:
+    build:
+      context: ./push-service
+      dockerfile: Dockerfile
+    container_name: push-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: push-service
+      
+      # CloudAMQP
+      CLOUDAMQP_URL: ${CLOUDAMQP_URL}
+      PUSH_QUEUE: push.queue
+      FAILED_QUEUE: failed.queue
+      PREFETCH_COUNT: 10
+      
+      # Firebase Cloud Messaging
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID}
+      
+      # Template Service
+      TEMPLATE_SERVICE_URL: http://template-service:3005
+      
+      # Circuit Breaker
+      CIRCUIT_BREAKER_THRESHOLD: 5
+      
+      # Retry
+      MAX_RETRY_ATTEMPTS: 3
+      
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      template-service:
+        condition: service_started
+    volumes:
+      - ./push-service/logs:/app/logs
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Template Service (Port 3005)
+  template-service:
+    build:
+      context: ./template-service
+      dockerfile: Dockerfile
+    container_name: template-service
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: template-service
+      
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-notification_system}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3005/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # REVERSE PROXY
+  # ==========================================
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  notification-network:
+    driver: bridge
