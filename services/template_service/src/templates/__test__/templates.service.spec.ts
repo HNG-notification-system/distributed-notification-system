@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TemplatesService } from './templates.service';
+import { TemplatesService } from '../templates.service';
 
 describe('TemplatesService', () => {
   let service: TemplatesService;
@@ -16,3 +16,4 @@ describe('TemplatesService', () => {
     expect(service).toBeDefined();
   });
 });
+

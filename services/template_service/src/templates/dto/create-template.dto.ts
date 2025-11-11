@@ -12,6 +12,15 @@ import { TemplateType } from '@prisma/client';
 
 export class CreateTemplateDto {
   @ApiProperty({
+    example: 'welcome-email',
+    description: 'Unique code identifier for the template',
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  template_code: string;
+
+  @ApiProperty({
     example: 'Welcome Email Template',
     description: 'Human-readable template name',
   })
@@ -51,7 +60,7 @@ export class CreateTemplateDto {
       'List of variables used in template (auto-extracted if not provided)',
   })
   @IsArray()
-  @IsString({ each: true }) 
+  @IsString({ each: true })
   @IsOptional()
   variables?: string[];
 
