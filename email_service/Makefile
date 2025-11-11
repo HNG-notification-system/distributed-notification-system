@@ -1,4 +1,4 @@
-.PHONY: help install dev build start test lint format docker-build docker-up docker-down logs clean docker-restart logs-rabbitmq send-test health status rabbitmq-ui
+.PHONY: help install dev build start test lint format docker-build docker-up docker-down logs clean docker-restart send-test health status
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -37,28 +37,25 @@ docker-down: ## Stop services
 	docker-compose down
 
 docker-restart: ## Restart services
-	docker-compose restart
+	docker-compose restart email-service
 
 logs: ## View service logs
 	docker-compose logs -f email-service
 
-logs-rabbitmq: ## View RabbitMQ logs
-	docker-compose logs -f rabbitmq
-
-send-test: ## Send test message to queue
+send-test: ## Send test message to CloudAMQP queue
 	node scripts/send-test-message.js
 
 health: ## Check service health
-	curl -sS http://localhost:3002/health
+	curl -sS http://localhost:3002/health | jq
 
 status: ## Get detailed status
-	curl -sS http://localhost:3002/status
+	curl -sS http://localhost:3002/status | jq
 
 clean: ## Clean build artifacts and logs
 	rm -rf dist node_modules logs/*.log
 
-rabbitmq-ui: ## Open RabbitMQ Management UI
-	@echo "Opening RabbitMQ Management UI..."
-	@echo "URL: http://localhost:15672"
-	@echo "Username: admin"
-	@echo "Password: admin123"
+cloudamqp-info: ## Show CloudAMQP connection info
+	@echo "CloudAMQP Dashboard: https://customer.cloudamqp.com/"
+	@echo "Connection URL stored in: .env (CLOUDAMQP_URL)"
+	@echo ""
+	@echo "To view your queues and stats, login to CloudAMQP dashboard"

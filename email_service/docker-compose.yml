@@ -1,57 +1,32 @@
-version: '3.8'
-
 services:
-  # RabbitMQ Message Broker
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    container_name: email-service-rabbitmq
-    ports:
-      - "5672:5672"   # AMQP port
-      - "15672:15672" # Management UI
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
-
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - notification-network
-
-  # Email Service (NestJS)
+  # Email Service (NestJS) - Using CloudAMQP
   email-service:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: email-service
     ports:
-      - "3002:3002"
+      - '3002:3002'
     environment:
       # Server
       PORT: 3002
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       SERVICE_NAME: email-service
 
-      # RabbitMQ
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672
+      # CloudAMQP RabbitMQ (External)
+      RABBITMQ_URL: ${CLOUDAMQP_URL}
       EMAIL_QUEUE: email.queue
       FAILED_QUEUE: failed.queue
       EXCHANGE_NAME: notifications.direct
       PREFETCH_COUNT: 10
 
-      # SMTP (Use your own credentials)
-      # NOTE: SMTP_USER and SMTP_PASSWORD are required in production. For local development we provide safe defaults below
+      # SMTP Configuration
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
-      # Local development defaults (override via environment or .env in production)
-      SMTP_USER: ${SMTP_USER:-dev@example.com}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-devpassword}
-      FROM_EMAIL: ${FROM_EMAIL:-noreply@yourapp.com}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
       FROM_NAME: ${FROM_NAME:-YourApp}
 
       # Template Service
@@ -69,24 +44,24 @@ services:
       RETRY_MULTIPLIER: 2
 
       # Logging
-      LOG_LEVEL: info
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
     networks:
       - notification-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-volumes:
-  rabbitmq_data:
 
 networks:
   notification-network:
