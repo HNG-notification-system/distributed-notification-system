@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy>=1.4
+asyncpg
+pydantic
+redis>=5.0.0
+python-dotenv
+alembic
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.0
+httpx
+pydantic[email]
