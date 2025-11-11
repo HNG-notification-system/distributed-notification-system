@@ -7,12 +7,13 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import * as cacheManager from 'cache-manager';
+import { Cache } from 'cache-manager';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
 import { QueryTemplateDto } from './dto/query-template.dto';
-import { RenderTemplateDto } from './dto/render-template.dto';
+import { PreviewTemplateDto } from './dto/preview-template.dto';
 import * as Handlebars from 'handlebars';
+import { ApiResponse } from '../common/interfaces/api-response.interface';
 
 @Injectable()
 export class TemplatesService {
@@ -20,7 +21,7 @@ export class TemplatesService {
 
   constructor(
     private prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private cacheManager: cacheManager.Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     this.registerHandlebarsHelpers();
   }
@@ -28,43 +29,43 @@ export class TemplatesService {
   private registerHandlebarsHelpers() {
     Handlebars.registerHelper('uppercase', (str: string) => str?.toUpperCase());
     Handlebars.registerHelper('lowercase', (str: string) => str?.toLowerCase());
-  }
-
-  private generateSlug(name: string): string {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    Handlebars.registerHelper('formatDate', (date: Date) => {
+      return new Date(date).toLocaleDateString();
+    });
   }
 
   private extractVariables(text: string): string[] {
     const regex = /\{\{(\w+)\}\}/g;
     const variables = new Set<string>();
     let match;
+
     while ((match = regex.exec(text)) !== null) {
       variables.add(match[1]);
     }
+
     return Array.from(variables);
   }
 
   async create(dto: CreateTemplateDto) {
-    const slug = this.generateSlug(dto.name);
+    // Check if template_code already exists
+    const existing = await this.prisma.template.findUnique({
+      where: { template_code: dto.template_code },
+    });
 
-    const existing = await this.prisma.template.findUnique({ where: { slug } });
     if (existing) {
-      throw new BadRequestException(
-        'Template with similar name already exists',
-      );
+      throw new BadRequestException('Template with this code already exists');
     }
 
+    // Auto-extract variables if not provided
     const subjectVars = this.extractVariables(dto.subject);
     const bodyVars = this.extractVariables(dto.body);
     const allVariables = Array.from(new Set([...subjectVars, ...bodyVars]));
 
+    // Create template
     const template = await this.prisma.template.create({
       data: {
+        template_code: dto.template_code,
         name: dto.name,
-        slug,
         type: dto.type,
         subject: dto.subject,
         body: dto.body,
@@ -75,35 +76,40 @@ export class TemplatesService {
       },
     });
 
-    // Create first version
+    // Create initial version
     await this.prisma.templateVersion.create({
       data: {
         template_id: template.id,
         version: 1,
         subject: template.subject,
         body: template.body,
-        variables: template.variables,
+        variables: template.variables as any,
         changed_by: dto.created_by,
         change_reason: 'Initial creation',
       },
     });
 
-    this.logger.log(`✅ Template created: ${slug}`);
+    this.logger.log(`✅ Template created: ${dto.template_code}`);
     return template;
   }
 
-  async findAll(query: QueryTemplateDto) {
-    const { search, type, language, page = 1, limit = 10 } = query;
+  async findAll(query: QueryTemplateDto): Promise<ApiResponse> {
+    const { search, type, language, is_active, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = { is_active: true };
+    const where: any = {};
+
+    if (is_active !== undefined) {
+      where.is_active = is_active;
+    }
 
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { slug: { contains: search, mode: 'insensitive' } },
+        { template_code: { contains: search, mode: 'insensitive' } },
       ];
     }
+
     if (type) where.type = type;
     if (language) where.language = language;
 
@@ -147,41 +153,48 @@ export class TemplatesService {
     return template;
   }
 
-  async findBySlug(slug: string) {
-    const cacheKey = `template:${slug}`;
+  async findByCode(template_code: string) {
+    // Try cache first
+    const cacheKey = `template:${template_code}`;
     const cached = await this.cacheManager.get(cacheKey);
 
     if (cached) {
-      this.logger.debug(`✅ Cache hit: ${slug}`);
+      this.logger.debug(`✅ Cache hit: ${template_code}`);
       return cached;
     }
 
+    // Query database
     const template = await this.prisma.template.findUnique({
-      where: { slug, is_active: true },
+      where: { template_code, is_active: true },
     });
 
     if (!template) {
-      throw new NotFoundException(`Template not found: ${slug}`);
+      throw new NotFoundException(
+        `Template with code ${template_code} not found`,
+      );
     }
 
-    await this.cacheManager.set(cacheKey, template, 300000);
+    // Cache for TTL configured in Redis
+    await this.cacheManager.set(cacheKey, template);
+
     return template;
   }
 
   async update(id: string, dto: UpdateTemplateDto) {
     const template = await this.findOne(id);
 
-    let slug = template.slug;
-    if (dto.name && dto.name !== template.name) {
-      slug = this.generateSlug(dto.name);
+    // If template_code changed, check uniqueness
+    if (dto.template_code && dto.template_code !== template.template_code) {
       const existing = await this.prisma.template.findUnique({
-        where: { slug },
+        where: { template_code: dto.template_code },
       });
+
       if (existing && existing.id !== id) {
-        throw new BadRequestException('Template with similar name exists');
+        throw new BadRequestException('Template code already exists');
       }
     }
 
+    // Update variables if content changed
     let variables = template.variables as string[];
     if (dto.subject || dto.body) {
       const subjectVars = this.extractVariables(
@@ -191,49 +204,82 @@ export class TemplatesService {
       variables = Array.from(new Set([...subjectVars, ...bodyVars]));
     }
 
+    // Update template
     const updated = await this.prisma.template.update({
       where: { id },
-      data: { ...dto, slug, variables },
+      data: {
+        ...dto,
+        variables,
+      },
     });
 
-    // Get current max version
+    // Create new version
     const lastVersion = await this.prisma.templateVersion.findFirst({
       where: { template_id: id },
       orderBy: { version: 'desc' },
     });
 
-    // Create new version
     await this.prisma.templateVersion.create({
       data: {
         template_id: id,
         version: (lastVersion?.version || 0) + 1,
         subject: updated.subject,
         body: updated.body,
-        variables: updated.variables,
+        variables: updated.variables as any,
         changed_by: dto.updated_by,
         change_reason: dto.change_reason || 'Template updated',
       },
     });
 
-    await this.cacheManager.del(`template:${updated.slug}`);
-    this.logger.log(`✅ Template updated: ${updated.slug}`);
+    // Invalidate cache
+    await this.cacheManager.del(`template:${updated.template_code}`);
+
+    this.logger.log(`✅ Template updated: ${updated.template_code}`);
     return updated;
   }
 
   async remove(id: string) {
     const template = await this.findOne(id);
 
+    // Soft delete
     await this.prisma.template.update({
       where: { id },
       data: { is_active: false },
     });
 
-    await this.cacheManager.del(`template:${template.slug}`);
-    this.logger.log(`🗑️ Template deleted: ${template.slug}`);
+    // Invalidate cache
+    await this.cacheManager.del(`template:${template.template_code}`);
+
+    this.logger.log(`🗑️ Template soft deleted: ${template.template_code}`);
   }
 
-  async render(dto: RenderTemplateDto) {
-    const template = await this.findBySlug(dto.slug);
+  async preview(dto: PreviewTemplateDto) {
+    let template;
+
+    if (dto.version) {
+      // Get specific version
+      const version = await this.prisma.templateVersion.findFirst({
+        where: {
+          template: { template_code: dto.template_code },
+          version: dto.version,
+        },
+        include: { template: true },
+      });
+
+      if (!version) {
+        throw new NotFoundException(
+          `Template version ${dto.version} not found`,
+        );
+      }
+
+      template = {
+        subject: version.subject,
+        body: version.body,
+      };
+    } else {
+      // Get latest version
+      template = await this.findByCode(dto.template_code);
+    }
 
     try {
       const subjectTemplate = Handlebars.compile(template.subject);
@@ -244,12 +290,14 @@ export class TemplatesService {
         body: bodyTemplate(dto.variables),
       };
     } catch (error) {
-      this.logger.error(`❌ Render failed: ${error.message}`);
+      this.logger.error(
+        `❌ Error rendering template ${dto.template_code}: ${error.message}`,
+      );
       throw new BadRequestException('Failed to render template');
     }
   }
 
-  async getVersions(templateId: string) {
+  async getVersions(templateId: string): Promise<ApiResponse> {
     const versions = await this.prisma.templateVersion.findMany({
       where: { template_id: templateId },
       orderBy: { version: 'desc' },
@@ -258,7 +306,63 @@ export class TemplatesService {
     return {
       success: true,
       data: versions,
-      message: 'Versions retrieved',
+      message: 'Template versions retrieved successfully',
     };
+  }
+
+  async revertToVersion(templateId: string, versionNumber: number) {
+    const version = await this.prisma.templateVersion.findFirst({
+      where: {
+        template_id: templateId,
+        version: versionNumber,
+      },
+    });
+
+    if (!version) {
+      throw new NotFoundException(`Version ${versionNumber} not found`);
+    }
+
+    const template = await this.prisma.template.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new NotFoundException(`Template ${templateId} not found`);
+    }
+
+    // Update template with old version data
+    const reverted = await this.prisma.template.update({
+      where: { id: templateId },
+      data: {
+        subject: version.subject,
+        body: version.body,
+        variables: version.variables as any,
+        updated_at: new Date(),
+      },
+    });
+
+    // Create new version entry
+    const lastVersion = await this.prisma.templateVersion.findFirst({
+      where: { template_id: templateId },
+      orderBy: { version: 'desc' },
+    });
+
+    await this.prisma.templateVersion.create({
+      data: {
+        template_id: templateId,
+        version: (lastVersion?.version || 0) + 1,
+        subject: reverted.subject,
+        body: reverted.body,
+        variables: reverted.variables as any,
+        changed_by: 'system',
+        change_reason: `Reverted to version ${versionNumber}`,
+      },
+    });
+
+    // Invalidate cache
+    await this.cacheManager.del(`template:${reverted.template_code}`);
+
+    this.logger.log(`✅ Template reverted to version ${versionNumber}`);
+    return reverted;
   }
 }

@@ -1,4 +1,12 @@
-import { IsOptional, IsString, IsEnum, IsInt, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { TemplateType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
@@ -18,6 +26,12 @@ export class QueryTemplateDto {
   @IsOptional()
   @IsString()
   language?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  is_active?: boolean;
 
   @ApiProperty({ required: false, default: 1 })
   @IsOptional()

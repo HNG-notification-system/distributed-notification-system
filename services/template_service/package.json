@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -17,10 +20,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:db": "prisma db seed"
   },
   "dependencies": {
-    "@nestjs/cache-manager": "^3.0.0",
+    "@golevelup/nestjs-rabbitmq": "^6.0.2",
+    "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -29,9 +34,11 @@
     "@nestjs/swagger": "^11.2.1",
     "@prisma/client": "^6.19.0",
     "cache-manager": "^7.2.4",
+    "cache-manager-redis-yet": "^5.1.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "install": "^0.13.0",
+    "ioredis": "^5.8.2",
     "npm": "^11.6.2",
     "prisma": "^6.19.0",
     "reflect-metadata": "^0.2.2",
