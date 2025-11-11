@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
+import SMTPTransport = require('nodemailer/lib/smtp-transport');
 import { EmailPayload, EmailResult } from '../../common/dto';
 import { CircuitBreaker } from '../../common/utils/circuit-breaker';
 import axios from 'axios';
@@ -32,22 +33,25 @@ export class EmailService {
     } else {
       this.provider = 'smtp';
       const smtpPort = parseInt(this.configService.get('SMTP_PORT', '587'), 10);
-
+      if (isNaN(smtpPort) || smtpPort <= 0 || smtpPort > 65535) {
+        throw new Error(`Invalid SMTP_PORT: must be a number between 1 and 65535`);
+      }
       this.transporter = nodemailer.createTransport({
         host: this.configService.get<string>('SMTP_HOST'),
         port: smtpPort,
         secure: smtpPort === 465, // true for 465, false for other ports
         auth: {
-          user: this.configService.get<string>('SMTP_USER'),
-          pass: this.configService.get<string>('SMTP_PASSWORD'),
+          user: this.configService.get<string>('SMTP_USER', ''),
+          pass: this.configService.get<string>('SMTP_PASS', ''),
         },
         tls: {
-          // Do not fail on invalid certs (for development)
-          rejectUnauthorized: false,
+          // Only reject invalid certs in production; allow self-signed in development if needed
+          rejectUnauthorized: this.configService.get('NODE_ENV') === 'production',
         },
         // Force STARTTLS for port 587
         requireTLS: smtpPort === 587,
-      });
+      } as SMTPTransport.Options);
+      this.logger.log('Initialized SMTP email provider');
       this.logger.log('Initialized SMTP email provider');
     }
   }

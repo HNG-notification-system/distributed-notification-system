@@ -1,4 +1,4 @@
-.PHONY: help install dev build start test lint format docker-build docker-up docker-down logs clean docker-restart send-test health status
+.PHONY: help install dev build start test lint format docker-build docker-up docker-down logs clean docker-restart send-test health status cloudamqp-info
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
