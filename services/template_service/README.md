@@ -1,284 +1,202 @@
-🎯 Template Service
+# 📄 Template Service
 
-A high-performance microservice for managing notification templates across email, push, and SMS channels.
-Built with NestJS, featuring version control, Redis caching, and Handlebars templating.
+The **Template Service** is a core component of the Distributed Notification System.  
+It is responsible for **storing**, **managing**, and **retrieving** message templates used across various communication channels (e.g., email, push notifications, SMS).  
+It also supports **variable substitution**, **multi-language templates**, and **version management**.
 
-📑 Table of Contents
+---
 
-✨ Features
+## 🚀 Features
 
-🏗️ Architecture
+- 🧩 Create, update, delete, and retrieve templates  
+- 🔁 Maintain version history for templates  
+- 🌍 Multi-language support  
+- 🧠 Variable substitution using `{{variable_name}}`  
+- ⚡ Redis caching for fast lookups  
+- 🗃 PostgreSQL persistence  
+- 🔐 Role-based access control (`admin`/`editor` / `user`)  
+- 🩺 Health check endpoint (`/health`)
 
-🚀 Quick Start
+---
 
-Prerequisites
+## 🏗️ Architecture
 
-Local Development
+This service is part of a **microservices-based notification system** and communicates with others (e.g., `email_service`, `push_service`, `api_gateway`) via REST APIs and internal service keys.
 
-🐳 Docker Deployment (Recommended)
+api_gateway
+├── template_service
+├── email_service
+├── push_service
+└── user_service
 
-⚙️ Configuration
 
-Environment Variables
 
-🐋 Docker Compose Services
+## ⚙️ Tech Stack
 
-🔐 Authentication & Authorization
+- **Framework:** [NestJS](https://nestjs.com/)  
+- **Language:** TypeScript  
+- **ORM:** Prisma  
+- **Database:** PostgreSQL  
+- **Cache:** Redis  
+- **Containerization:** Docker  
+- **API Documentation:** Swagger (auto-generated)  
 
-Dual-Layer Security
+---
 
-Access Matrix
+## 🧩 Environment Variables
 
-📡 API Reference
+Create a `.env` file in your `template_service` directory:
 
-Complete Endpoint List
+```env
+# Server
+PORT=3003
+NODE_ENV=development
 
-Request Examples
+# Database
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<db_name>
 
-🛠️ Development
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_TTL=300
 
-📊 Health Monitoring
-
-🔧 Troubleshooting
-
-🚨 Security Notes
-
-✨ Features
-
-🚀 Multi-channel Templates – Email, push notifications, SMS
-
-🔄 Version Control – Full audit trail with rollback capability
-
-⚡ Redis Caching – Fast template retrieval
-
-🎨 Handlebars Engine – Powerful variable substitution with custom helpers
-
-🔐 Dual-Layer Authentication – Internal service keys + role-based access
-
-📚 OpenAPI Documentation – Interactive API docs via Swagger UI
-
-🐳 Docker Ready – Containerized deployment with Docker Compose
-
-🏗️ Enterprise Ready – Built with NestJS for scalability and maintainability
-
-🏗️ Architecture
-
-NestJS microservice architecture with PostgreSQL persistence and Redis caching.
-
-🚀 Quick Start
-Prerequisites
-
-Node.js 18+
-
-PostgreSQL 14+
-
-Redis 7+
-
-Local Development
-# 1. Clone the repository
-git clone <https://github.com/HNG-notification-system/distributed-notification-system.git
-cd template-service
-
-# 2. Install dependencies
+# Service key (for internal service requests)
+SERVICE_KEY=your_service_secret_key
+🧱 Installation & Setup
+1️⃣ Clone the repository
+bash
+Copy code
+git clone https://github.com/HNG-notification-system/distributed-notification-system.git
+cd distributed-notification-system/services/template_service
+2️⃣ Install dependencies
+bash
+Copy code
 npm install
-
-# 3. Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# 4. Run database migrations
-npx prisma migrate deploy
-
-# 5. (Optional) Seed the database
-npx prisma db seed
-
-# 6. Start the development server
+3️⃣ Run database migrations
+bash
+Copy code
+npx prisma migrate dev
+4️⃣ Start the service
+bash
+Copy code
 npm run start:dev
+🐳 Docker Setup
+To build and run the service inside Docker:
 
+bash
+Copy code
+docker compose build template_service
+docker compose up template_service
+🧪 API Endpoints
+Method	Endpoint	Description	Auth
+POST	/templates	Create a new template	Admin
+PUT	/templates/:id	Update a template	Admin
+DELETE	/templates/:id	Delete a template	Admin
+GET	/templates/:template_code	Get template by code	User
+GET	/templates/:template_code/versions/:version	Get specific version	User
+POST	/templates/preview	Preview a template with variables	Internal
+GET	/health	Health check	Public
 
-Service available at: http://localhost:3003
+🔐 Headers
+x-service-key: Used for internal service requests (e.g., preview or get by code)
 
-Swagger API docs: http://localhost:3003/api/docs
+x-user-role: Used for identifying user/admin actions
 
-🐳 Docker Deployment 
-# Start all services (PostgreSQL, Redis, and Template Service)
-docker-compose up -d
+Note:
+Use x-service-key only for internal service requests.
+For admin/editor actions, include x-user-role as well.
 
-# Check service status
-docker-compose ps
-
-# View logs
-docker-compose logs -f template-service
-
-# Stop services
-docker-compose down
-
-
-Service available at: http://localhost:3003
-
-Health check: http://localhost:3003/api/v1/health
-
-⚙️ Configuration
-Environment Variables
-Variable	Description	Default
-DATABASE_URL	PostgreSQL connection string	postgresql://user:pass@localhost:5432/template_service
-REDIS_HOST	Redis server host	localhost
-REDIS_PORT	Redis server port	6379
-REDIS_PASSWORD	Redis password (optional)	-
-INTERNAL_SERVICE_KEY	Key for internal service communication	-
-NODE_ENV	Application environment	development
-PORT	Service port	3003
-ALLOWED_ORIGINS	CORS allowed origins	http://localhost:3000,http://localhost:3001
-🐋 Docker Compose Services
-
-The docker-compose.yml includes:
-
-PostgreSQL 15 – Database with health checks
-
-Redis 7 – Cache with persistence and health checks
-
-Template Service – NestJS app with auto-migrations and integrated health checks
-
-🔐 Authentication & Authorization
-Dual-Layer Security
-
-All routes require at least one of the following authentication methods:
-
-1. Internal Service Authentication (Required for all routes)
-x-service-key: your-internal-service-key
-
-2. Role-Based Access (For user actions via API Gateway)
-x-user-role: admin | editor
-
-Access Matrix
-Route Type	Internal Service Key	Admin Role	Editor Role
-All Routes	✅ Required	-	-
-Read Operations	✅ Required	✅ Optional	✅ Optional
-Write Operations	✅ Required	✅ Required	⚠️ Limited
-Admin Operations	✅ Required	✅ Required	❌ Denied
-📡 API Reference
-Complete Endpoint List
-Method	Endpoint	Description	Auth Requirements
-HEALTH & MONITORING			
-GET	/api/v1/health	Basic health check	Internal Key Only
-GET	/api/v1/health/detailed	Detailed health with dependencies	Internal Key Only
-TEMPLATE MANAGEMENT			
-POST	/api/v1/templates	Create new template	Internal Key + Admin Role
-GET	/api/v1/templates	List templates (paginated)	Internal Key + (Admin/Editor Role)
-GET	/api/v1/templates/:id	Get template by ID	Internal Key + (Admin/Editor Role)
-PATCH	/api/v1/templates/:id	Update template	Internal Key + (Admin/Editor Role)
-DELETE	/api/v1/templates/:id	Soft delete template	Internal Key + Admin Role
-TEMPLATE RENDERING			
-POST	/api/v1/templates/preview	Render template preview	Internal Key Only
-GET	/api/v1/templates/code/:code	Get template by code	Internal Key Only
-VERSION CONTROL			
-GET	/api/v1/templates/:id/versions	Get version history	Internal Key + (Admin/Editor Role)
-POST	/api/v1/templates/:id/versions/:version/revert	Revert to version	Internal Key + Admin Role
-🧩 Request Examples
-All Requests Require Internal Service Key
-GET /api/v1/templates
-x-service-key: your-internal-service-key
-
-Admin-Only Endpoint
-POST /api/v1/templates
-x-service-key: your-internal-service-key
-x-user-role: admin
-
-Body Example:
-
+🧰 Example Requests
+➕ Create Template
+bash
+Copy code
+POST /templates
+Headers:
+  x-service-key: your_service_secret_key
+  x-user-role: admin
+Body:
 {
   "template_code": "welcome_email",
-  "name": "Welcome Email",
-  "type": "email",
+  "language": "en",
   "subject": "Welcome, {{name}}!",
-  "body": "Hi {{name}}, click {{link}} to get started",
-  "variables": ["name", "link"],
-  "language": "en"
+  "body": "Hello {{name}}, thank you for joining us.",
+  "variables": ["name"]
 }
-
-Template Preview (Internal Service Only)
-POST /api/v1/templates/preview
-x-service-key: your-service-key
-
-
-Body Example:
-
+👁️ Preview Template
+bash
+Copy code
+POST /templates/preview
+Headers:
+  x-service-key: your_service_secret_key
+Body:
 {
   "template_code": "welcome_email",
   "variables": {
-    "name": "Glory",
-    "link": "https://app.com"
+    "name": "Glory"
   }
 }
-
-
+🩺 Health Check
+bash
+Copy code
+GET /health
 Response:
 
+json
+Copy code
+{ "status": "ok", "service": "template_service" }
+🧭 Swagger API Documentation
+The service includes Swagger UI for easy API testing and documentation.
+
+Access the docs
+Once the server is running, open:
+
+👉 http://localhost:3003/api/docs
+
+Swagger Setup Code Snippet
+If you’re cloning or modifying the service, ensure Swagger is configured in main.ts:
+
+ts
+Copy code
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+
+const config = new DocumentBuilder()
+  .setTitle('Template Service API')
+  .setDescription('API documentation for Template Service')
+  .setVersion('1.0')
+  .addBearerAuth()
+  .build();
+
+const document = SwaggerModule.createDocument(app, config);
+SwaggerModule.setup('api/docs', app, document);
+🧑‍💻 Developer Notes
+All responses follow a consistent format:
+
+json
+Copy code
 {
   "success": true,
-  "data": {
-    "subject": "Welcome, Glory!",
-    "body": "Hi Glory, click https://app.com to get started"
-  },
-  "message": "Template rendered successfully"
+  "data": { ... },
+  "message": "Operation successful"
 }
+Templates are cached in Redis for performance.
 
-🛠️ Development
-Database Operations
-# Generate Prisma client
-npx prisma generate
+Use template_code + version to maintain version history.
 
-# Create new migration
-npx prisma migrate dev --name migration_name
+🤝 Contributing
+Fork this repository
 
-# Reset database
-npx prisma migrate reset
+Create a new branch: git checkout -b feat/add-new-feature
 
-# Open Prisma Studio
-npx prisma studio
+Commit changes: git commit -m "feat: add new feature"
 
-Testing
-# Unit tests
-npm run test
+Push and create a PR
 
-# End-to-End tests
-npm run test:e2e
+🩵 Maintainers
+Oparaocha Glory Mmachi – Backend Developer
 
-# Test coverage
-npm run test:cov
+Team: Distributed Notification System Developers
 
-📊 Health Monitoring
+📜 License
+This project is licensed under the MIT License.
 
-Basic Health: GET /api/v1/health (Internal key required)
-
-Detailed Health: GET /api/v1/health/detailed (Includes PostgreSQL and Redis status)
-
-🔧 Troubleshooting
-Issue	Possible Fix
-Authentication errors	Ensure x-service-key header is present for all requests
-Authorization errors	Check role headers for restricted routes
-Port 3003 in use	Run docker-compose down to stop existing containers
-Database issues	Ensure PostgreSQL and Redis are running
-Migration errors	Run npx prisma migrate reset
-🐳 Docker Commands
-# Check service logs
-docker-compose logs -f template-service
-
-# Execute Prisma commands inside container
-docker-compose exec template-service npx prisma migrate status
-
-# Restart specific service
-docker-compose restart template-service
-
-# Check environment variables
-docker-compose exec template-service printenv INTERNAL_SERVICE_KEY
-
-🚨 Security Notes
-
-x-service-key is required for all API endpoints
-
-Role-based headers are managed via API Gateway or Auth Service
-
-Never commit keys to version control
-
-Use different keys for development, staging, and production environments
