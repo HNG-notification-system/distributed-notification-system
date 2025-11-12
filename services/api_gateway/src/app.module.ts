@@ -1,27 +1,32 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import configuration from './config/configuration';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
-import { RabbitmqService } from './modules/rabbitmq/rabbitmq.service';
-import { RedisService } from './modules/infra/redis.service';
-import { HealthController } from './modules/health/health.controller';
+import { SharedModule } from './modules/shared/shared.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { HealthController } from './modules/health/health.controller';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot(), // no ttl/limit here in v6
+    // load your config and make ConfigService global so every module can inject it
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+    }),
+
+    ThrottlerModule.forRoot(),
+    SharedModule,
     NotificationsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
     AppService,
-    RabbitmqService,
-    RedisService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard }, // global throttler guard
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
-  exports: [RabbitmqService, RedisService],
 })
-export class AppModule {}
+export class AppModule { }
