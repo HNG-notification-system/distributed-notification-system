@@ -1,7 +1,9 @@
+// src/modules/notifications/notifications.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { NotificationProducer } from './notification.producer';
 import { RedisService } from '../infra/redis.service';
 import { UserServiceClient } from '../users/user.service.client';
+import { User } from '../users/user.types';
 import config from '../../config/configuration';
 
 @Injectable()
@@ -13,11 +15,12 @@ export class NotificationsService {
     private readonly producer: NotificationProducer,
     private readonly redis: RedisService,
     private readonly userClient: UserServiceClient,
-  ) {}
+  ) { }
 
   async enqueueNotification(dto: any) {
     // 1) Fetch user info (from cache or user service)
-    const user = await this.userClient.getUser(dto.userId);
+    const user: User | null = await this.userClient.getUser(dto.userId);
+
     if (!user) {
       this.logger.warn(`User not found: ${dto.userId}`);
       await this.redis.setStatus(dto.id, 'failed:user_not_found');
@@ -25,12 +28,15 @@ export class NotificationsService {
     }
 
     // 2) Check user preferences and decide whether to enqueue
-    const prefs = user.preferences || {};
-    if (dto.type === 'email' && prefs.emailNotifications === false) {
+    // tolerate both legacy and new pref names
+    const prefs = (user.preferences ?? {}) as Record<string, any>;
+
+    // treat explicit false as opt-out
+    if (dto.type === 'email' && (prefs.emailNotifications === false || prefs.email === false)) {
       await this.redis.setStatus(dto.id, 'skipped:user_opt_out');
       return { enqueued: false, reason: 'user_opt_out' };
     }
-    if (dto.type === 'push' && prefs.pushNotifications === false) {
+    if (dto.type === 'push' && (prefs.pushNotifications === false || prefs.push === false)) {
       await this.redis.setStatus(dto.id, 'skipped:user_opt_out');
       return { enqueued: false, reason: 'user_opt_out' };
     }
@@ -44,10 +50,12 @@ export class NotificationsService {
 
     // 4) Enrich dto with direct contact info for consumers
     dto.variables = dto.variables || {};
+    const pushToken = user.pushToken || user.devices?.[0]?.token || null;
+
     dto.variables.__user = {
       id: user.id,
       email: user.email,
-      pushToken: user.pushToken,
+      pushToken,
     };
 
     // 5) Handle scheduled notifications
