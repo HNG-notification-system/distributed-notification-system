@@ -1,6 +1,47 @@
 🎯 Template Service
 
-A high-performance microservice for managing notification templates across email, push, and SMS channels. Built with NestJS, featuring version control, Redis caching, and Handlebars templating.
+A high-performance microservice for managing notification templates across email, push, and SMS channels.
+Built with NestJS, featuring version control, Redis caching, and Handlebars templating.
+
+📑 Table of Contents
+
+✨ Features
+
+🏗️ Architecture
+
+🚀 Quick Start
+
+Prerequisites
+
+Local Development
+
+🐳 Docker Deployment (Recommended)
+
+⚙️ Configuration
+
+Environment Variables
+
+🐋 Docker Compose Services
+
+🔐 Authentication & Authorization
+
+Dual-Layer Security
+
+Access Matrix
+
+📡 API Reference
+
+Complete Endpoint List
+
+Request Examples
+
+🛠️ Development
+
+📊 Health Monitoring
+
+🔧 Troubleshooting
+
+🚨 Security Notes
 
 ✨ Features
 
@@ -12,7 +53,7 @@ A high-performance microservice for managing notification templates across email
 
 🎨 Handlebars Engine – Powerful variable substitution with custom helpers
 
-🔐 Role-Based Access – Admin and editor roles with internal service authentication
+🔐 Dual-Layer Authentication – Internal service keys + role-based access
 
 📚 OpenAPI Documentation – Interactive API docs via Swagger UI
 
@@ -35,7 +76,7 @@ Redis 7+
 
 Local Development
 # 1. Clone the repository
-git clone <repository-url>
+git clone <https://github.com/HNG-notification-system/distributed-notification-system.git
 cd template-service
 
 # 2. Install dependencies
@@ -46,23 +87,36 @@ cp .env.example .env
 # Edit .env with your configuration
 
 # 4. Run database migrations
-npm run db:migrate
+npx prisma migrate deploy
 
-# 5. Start development server
+# 5. (Optional) Seed the database
+npx prisma db seed
+
+# 6. Start the development server
 npm run start:dev
 
 
-Service available at: http://localhost:3000
+Service available at: http://localhost:3003
 
-Swagger API docs: http://localhost:3000/api/docs
+Swagger API docs: http://localhost:3003/api/docs
 
-Docker Deployment
-# Using Docker Compose
+🐳 Docker Deployment 
+# Start all services (PostgreSQL, Redis, and Template Service)
 docker-compose up -d
 
-# Or build manually
-docker build -t template-service .
-docker run -d --name template-service -p 3000:3000 template-service
+# Check service status
+docker-compose ps
+
+# View logs
+docker-compose logs -f template-service
+
+# Stop services
+docker-compose down
+
+
+Service available at: http://localhost:3003
+
+Health check: http://localhost:3003/api/v1/health
 
 ⚙️ Configuration
 Environment Variables
@@ -73,58 +127,61 @@ REDIS_PORT	Redis server port	6379
 REDIS_PASSWORD	Redis password (optional)	-
 INTERNAL_SERVICE_KEY	Key for internal service communication	-
 NODE_ENV	Application environment	development
-API_PORT	Service port	3000
-Docker Compose Example
-version: '3.8'
-services:
-  template-service:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://user:pass@db:5432/template_service
-      REDIS_HOST: redis
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-    depends_on:
-      - db
-      - redis
+PORT	Service port	3003
+ALLOWED_ORIGINS	CORS allowed origins	http://localhost:3000,http://localhost:3001
+🐋 Docker Compose Services
 
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: template_service
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+The docker-compose.yml includes:
 
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
+PostgreSQL 15 – Database with health checks
 
-volumes:
-  postgres_data:
-  redis_data:
+Redis 7 – Cache with persistence and health checks
 
-📡 API Reference
-Authorization
+Template Service – NestJS app with auto-migrations and integrated health checks
 
-Internal Services: x-service-key: your-internal-service-key
+🔐 Authentication & Authorization
+Dual-Layer Security
 
-Admin / Editor Users (via API Gateway):
+All routes require at least one of the following authentication methods:
 
+1. Internal Service Authentication (Required for all routes)
+x-service-key: your-internal-service-key
+
+2. Role-Based Access (For user actions via API Gateway)
 x-user-role: admin | editor
-x-auth-verified: true
-x-user-id: user-uuid
 
-Key Endpoints
-Create Template (Admin Only)
+Access Matrix
+Route Type	Internal Service Key	Admin Role	Editor Role
+All Routes	✅ Required	-	-
+Read Operations	✅ Required	✅ Optional	✅ Optional
+Write Operations	✅ Required	✅ Required	⚠️ Limited
+Admin Operations	✅ Required	✅ Required	❌ Denied
+📡 API Reference
+Complete Endpoint List
+Method	Endpoint	Description	Auth Requirements
+HEALTH & MONITORING			
+GET	/api/v1/health	Basic health check	Internal Key Only
+GET	/api/v1/health/detailed	Detailed health with dependencies	Internal Key Only
+TEMPLATE MANAGEMENT			
+POST	/api/v1/templates	Create new template	Internal Key + Admin Role
+GET	/api/v1/templates	List templates (paginated)	Internal Key + (Admin/Editor Role)
+GET	/api/v1/templates/:id	Get template by ID	Internal Key + (Admin/Editor Role)
+PATCH	/api/v1/templates/:id	Update template	Internal Key + (Admin/Editor Role)
+DELETE	/api/v1/templates/:id	Soft delete template	Internal Key + Admin Role
+TEMPLATE RENDERING			
+POST	/api/v1/templates/preview	Render template preview	Internal Key Only
+GET	/api/v1/templates/code/:code	Get template by code	Internal Key Only
+VERSION CONTROL			
+GET	/api/v1/templates/:id/versions	Get version history	Internal Key + (Admin/Editor Role)
+POST	/api/v1/templates/:id/versions/:version/revert	Revert to version	Internal Key + Admin Role
+🧩 Request Examples
+All Requests Require Internal Service Key
+GET /api/v1/templates
+x-service-key: your-internal-service-key
 
-POST /templates
-
-Headers:
+Admin-Only Endpoint
+POST /api/v1/templates
+x-service-key: your-internal-service-key
 x-user-role: admin
 
 Body Example:
@@ -139,12 +196,10 @@ Body Example:
   "language": "en"
 }
 
-Preview Template (Internal Services)
-
-POST /templates/preview
-
-Headers:
+Template Preview (Internal Service Only)
+POST /api/v1/templates/preview
 x-service-key: your-service-key
+
 
 Body Example:
 
@@ -168,19 +223,62 @@ Response:
   "message": "Template rendered successfully"
 }
 
-Complete Endpoint List
-Method	Endpoint	Description	Auth
-POST	/templates	Create new template	Admin
-GET	/templates	List templates (paginated)	Admin / Editor
-GET	/templates/:id	Get template by ID	Admin / Editor
-PATCH	/templates/:id	Update template	Admin / Editor
-DELETE	/templates/:id	Soft delete template	Admin
-POST	/templates/preview	Render template preview	Internal Service
-GET	/templates/code/:code	Get template by code	Internal Service
-GET	/templates/:id/versions	Get version history	Admin / Editor
-POST	/templates/:id/versions/:version/revert	Revert to version	Admin / Editor
-🔐 Authorization Matrix
-Role	Create	Read	Update	Delete	Preview
-Admin	✅	✅	✅	✅	✅
-Editor	❌	✅	✅	❌	✅
-Internal Service	❌	✅	❌	❌	✅
+🛠️ Development
+Database Operations
+# Generate Prisma client
+npx prisma generate
+
+# Create new migration
+npx prisma migrate dev --name migration_name
+
+# Reset database
+npx prisma migrate reset
+
+# Open Prisma Studio
+npx prisma studio
+
+Testing
+# Unit tests
+npm run test
+
+# End-to-End tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+
+📊 Health Monitoring
+
+Basic Health: GET /api/v1/health (Internal key required)
+
+Detailed Health: GET /api/v1/health/detailed (Includes PostgreSQL and Redis status)
+
+🔧 Troubleshooting
+Issue	Possible Fix
+Authentication errors	Ensure x-service-key header is present for all requests
+Authorization errors	Check role headers for restricted routes
+Port 3003 in use	Run docker-compose down to stop existing containers
+Database issues	Ensure PostgreSQL and Redis are running
+Migration errors	Run npx prisma migrate reset
+🐳 Docker Commands
+# Check service logs
+docker-compose logs -f template-service
+
+# Execute Prisma commands inside container
+docker-compose exec template-service npx prisma migrate status
+
+# Restart specific service
+docker-compose restart template-service
+
+# Check environment variables
+docker-compose exec template-service printenv INTERNAL_SERVICE_KEY
+
+🚨 Security Notes
+
+x-service-key is required for all API endpoints
+
+Role-based headers are managed via API Gateway or Auth Service
+
+Never commit keys to version control
+
+Use different keys for development, staging, and production environments
