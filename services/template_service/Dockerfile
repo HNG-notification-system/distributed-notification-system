@@ -9,8 +9,8 @@ RUN apk add --no-cache curl postgresql-client
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci
+# Install dependencies - CHANGED THIS LINE
+RUN npm install
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -25,7 +25,7 @@ RUN npm run build
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
     echo 'echo "Waiting for database to be ready..."' >> /app/start.sh && \
-    echo 'until PGPASSWORD=postgres psql -h template-postgres -U postgres -d template_service_db -c "SELECT 1;" > /dev/null 2>&1; do' >> /app/start.sh && \
+    echo 'until PGPASSWORD=admin123 psql -h postgres -U admin -d notification_system -c "SELECT 1;" > /dev/null 2>&1; do' >> /app/start.sh && \
     echo '  echo "Database not ready yet - sleeping..."' >> /app/start.sh && \
     echo '  sleep 2' >> /app/start.sh && \
     echo 'done' >> /app/start.sh && \
