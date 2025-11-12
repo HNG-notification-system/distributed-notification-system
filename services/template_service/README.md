@@ -1,186 +1,202 @@
-🎯 Template Service
+# 📄 Template Service
 
-A high-performance microservice for managing notification templates across email, push, and SMS channels. Built with NestJS, featuring version control, Redis caching, and Handlebars templating.
+The **Template Service** is a core component of the Distributed Notification System.  
+It is responsible for **storing**, **managing**, and **retrieving** message templates used across various communication channels (e.g., email, push notifications, SMS).  
+It also supports **variable substitution**, **multi-language templates**, and **version management**.
 
-✨ Features
+---
 
-🚀 Multi-channel Templates – Email, push notifications, SMS
+## 🚀 Features
 
-🔄 Version Control – Full audit trail with rollback capability
+- 🧩 Create, update, delete, and retrieve templates  
+- 🔁 Maintain version history for templates  
+- 🌍 Multi-language support  
+- 🧠 Variable substitution using `{{variable_name}}`  
+- ⚡ Redis caching for fast lookups  
+- 🗃 PostgreSQL persistence  
+- 🔐 Role-based access control (`admin`/`editor` / `user`)  
+- 🩺 Health check endpoint (`/health`)
 
-⚡ Redis Caching – Fast template retrieval
+---
 
-🎨 Handlebars Engine – Powerful variable substitution with custom helpers
+## 🏗️ Architecture
 
-🔐 Role-Based Access – Admin and editor roles with internal service authentication
+This service is part of a **microservices-based notification system** and communicates with others (e.g., `email_service`, `push_service`, `api_gateway`) via REST APIs and internal service keys.
 
-📚 OpenAPI Documentation – Interactive API docs via Swagger UI
+api_gateway
+├── template_service
+├── email_service
+├── push_service
+└── user_service
 
-🐳 Docker Ready – Containerized deployment with Docker Compose
 
-🏗️ Enterprise Ready – Built with NestJS for scalability and maintainability
 
-🏗️ Architecture
+## ⚙️ Tech Stack
 
-NestJS microservice architecture with PostgreSQL persistence and Redis caching.
+- **Framework:** [NestJS](https://nestjs.com/)  
+- **Language:** TypeScript  
+- **ORM:** Prisma  
+- **Database:** PostgreSQL  
+- **Cache:** Redis  
+- **Containerization:** Docker  
+- **API Documentation:** Swagger (auto-generated)  
 
-🚀 Quick Start
-Prerequisites
+---
 
-Node.js 18+
+## 🧩 Environment Variables
 
-PostgreSQL 14+
+Create a `.env` file in your `template_service` directory:
 
-Redis 7+
+```env
+# Server
+PORT=3003
+NODE_ENV=development
 
-Local Development
-# 1. Clone the repository
-git clone <repository-url>
-cd template-service
+# Database
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<db_name>
 
-# 2. Install dependencies
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_TTL=300
+
+# Service key (for internal service requests)
+SERVICE_KEY=your_service_secret_key
+🧱 Installation & Setup
+1️⃣ Clone the repository
+bash
+Copy code
+git clone https://github.com/HNG-notification-system/distributed-notification-system.git
+cd distributed-notification-system/services/template_service
+2️⃣ Install dependencies
+bash
+Copy code
 npm install
-
-# 3. Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# 4. Run database migrations
-npm run db:migrate
-
-# 5. Start development server
+3️⃣ Run database migrations
+bash
+Copy code
+npx prisma migrate dev
+4️⃣ Start the service
+bash
+Copy code
 npm run start:dev
+🐳 Docker Setup
+To build and run the service inside Docker:
 
+bash
+Copy code
+docker compose build template_service
+docker compose up template_service
+🧪 API Endpoints
+Method	Endpoint	Description	Auth
+POST	/templates	Create a new template	Admin
+PUT	/templates/:id	Update a template	Admin
+DELETE	/templates/:id	Delete a template	Admin
+GET	/templates/:template_code	Get template by code	User
+GET	/templates/:template_code/versions/:version	Get specific version	User
+POST	/templates/preview	Preview a template with variables	Internal
+GET	/health	Health check	Public
 
-Service available at: http://localhost:3000
+🔐 Headers
+x-service-key: Used for internal service requests (e.g., preview or get by code)
 
-Swagger API docs: http://localhost:3000/api/docs
+x-user-role: Used for identifying user/admin actions
 
-Docker Deployment
-# Using Docker Compose
-docker-compose up -d
+Note:
+Use x-service-key only for internal service requests.
+For admin/editor actions, include x-user-role as well.
 
-# Or build manually
-docker build -t template-service .
-docker run -d --name template-service -p 3000:3000 template-service
-
-⚙️ Configuration
-Environment Variables
-Variable	Description	Default
-DATABASE_URL	PostgreSQL connection string	postgresql://user:pass@localhost:5432/template_service
-REDIS_HOST	Redis server host	localhost
-REDIS_PORT	Redis server port	6379
-REDIS_PASSWORD	Redis password (optional)	-
-INTERNAL_SERVICE_KEY	Key for internal service communication	-
-NODE_ENV	Application environment	development
-API_PORT	Service port	3000
-Docker Compose Example
-version: '3.8'
-services:
-  template-service:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgresql://user:pass@db:5432/template_service
-      REDIS_HOST: redis
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-    depends_on:
-      - db
-      - redis
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: template_service
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-
-volumes:
-  postgres_data:
-  redis_data:
-
-📡 API Reference
-Authorization
-
-Internal Services: x-service-key: your-internal-service-key
-
-Admin / Editor Users (via API Gateway):
-
-x-user-role: admin | editor
-x-auth-verified: true
-x-user-id: user-uuid
-
-Key Endpoints
-Create Template (Admin Only)
-
+🧰 Example Requests
+➕ Create Template
+bash
+Copy code
 POST /templates
-
 Headers:
-x-user-role: admin
-
-Body Example:
-
+  x-service-key: your_service_secret_key
+  x-user-role: admin
+Body:
 {
   "template_code": "welcome_email",
-  "name": "Welcome Email",
-  "type": "email",
+  "language": "en",
   "subject": "Welcome, {{name}}!",
-  "body": "Hi {{name}}, click {{link}} to get started",
-  "variables": ["name", "link"],
-  "language": "en"
+  "body": "Hello {{name}}, thank you for joining us.",
+  "variables": ["name"]
 }
-
-Preview Template (Internal Services)
-
+👁️ Preview Template
+bash
+Copy code
 POST /templates/preview
-
 Headers:
-x-service-key: your-service-key
-
-Body Example:
-
+  x-service-key: your_service_secret_key
+Body:
 {
   "template_code": "welcome_email",
   "variables": {
-    "name": "Glory",
-    "link": "https://app.com"
+    "name": "Glory"
   }
 }
-
-
+🩺 Health Check
+bash
+Copy code
+GET /health
 Response:
 
+json
+Copy code
+{ "status": "ok", "service": "template_service" }
+🧭 Swagger API Documentation
+The service includes Swagger UI for easy API testing and documentation.
+
+Access the docs
+Once the server is running, open:
+
+👉 http://localhost:3003/api/docs
+
+Swagger Setup Code Snippet
+If you’re cloning or modifying the service, ensure Swagger is configured in main.ts:
+
+ts
+Copy code
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+
+const config = new DocumentBuilder()
+  .setTitle('Template Service API')
+  .setDescription('API documentation for Template Service')
+  .setVersion('1.0')
+  .addBearerAuth()
+  .build();
+
+const document = SwaggerModule.createDocument(app, config);
+SwaggerModule.setup('api/docs', app, document);
+🧑‍💻 Developer Notes
+All responses follow a consistent format:
+
+json
+Copy code
 {
   "success": true,
-  "data": {
-    "subject": "Welcome, Glory!",
-    "body": "Hi Glory, click https://app.com to get started"
-  },
-  "message": "Template rendered successfully"
+  "data": { ... },
+  "message": "Operation successful"
 }
+Templates are cached in Redis for performance.
 
-Complete Endpoint List
-Method	Endpoint	Description	Auth
-POST	/templates	Create new template	Admin
-GET	/templates	List templates (paginated)	Admin / Editor
-GET	/templates/:id	Get template by ID	Admin / Editor
-PATCH	/templates/:id	Update template	Admin / Editor
-DELETE	/templates/:id	Soft delete template	Admin
-POST	/templates/preview	Render template preview	Internal Service
-GET	/templates/code/:code	Get template by code	Internal Service
-GET	/templates/:id/versions	Get version history	Admin / Editor
-POST	/templates/:id/versions/:version/revert	Revert to version	Admin / Editor
-🔐 Authorization Matrix
-Role	Create	Read	Update	Delete	Preview
-Admin	✅	✅	✅	✅	✅
-Editor	❌	✅	✅	❌	✅
-Internal Service	❌	✅	❌	❌	✅
+Use template_code + version to maintain version history.
+
+🤝 Contributing
+Fork this repository
+
+Create a new branch: git checkout -b feat/add-new-feature
+
+Commit changes: git commit -m "feat: add new feature"
+
+Push and create a PR
+
+🩵 Maintainers
+Oparaocha Glory Mmachi – Backend Developer
+
+Team: Distributed Notification System Developers
+
+📜 License
+This project is licensed under the MIT License.
+

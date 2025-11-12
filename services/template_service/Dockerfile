@@ -2,17 +2,17 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl and postgresql-client for database checks
+RUN apk add --no-cache curl postgresql-client
 
-# Copy package files first
+# Copy package files and Prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install all dependencies
-RUN npm install
+# Install dependencies
+RUN npm ci
 
-# Generate Prisma Client
+# Generate Prisma client
 RUN npx prisma generate
 
 # Copy source code
@@ -21,23 +21,25 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Verify the build
-RUN echo "=== Build verification ===" && \
-    ls -la && \
-    echo "=== Dist contents ===" && \
-    ls -la dist/ && \
-    echo "=== Main files ===" && \
-    find dist/ -name "main.*" -type f
+# Create startup script that waits for DB and runs migrations
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
+    echo 'echo "Waiting for database to be ready..."' >> /app/start.sh && \
+    echo 'until PGPASSWORD=postgres psql -h template-postgres -U postgres -d template_service_db -c "SELECT 1;" > /dev/null 2>&1; do' >> /app/start.sh && \
+    echo '  echo "Database not ready yet - sleeping..."' >> /app/start.sh && \
+    echo '  sleep 2' >> /app/start.sh && \
+    echo 'done' >> /app/start.sh && \
+    echo 'echo "Database is ready - running migrations..."' >> /app/start.sh && \
+    echo 'npx prisma migrate deploy' >> /app/start.sh && \
+    echo 'echo "Migrations completed - starting application..."' >> /app/start.sh && \
+    echo 'exec node dist/src/main.js' >> /app/start.sh
 
-# Use the node user that already exists in the image
+RUN chmod +x /app/start.sh
+
 USER node
-
-# Expose port
 EXPOSE 3003
 
-# Health check (simplified for now)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:3003/api/v1/health || exit 1
 
-# Start the app
-CMD ["node", "dist/main"]
+CMD ["/app/start.sh"]

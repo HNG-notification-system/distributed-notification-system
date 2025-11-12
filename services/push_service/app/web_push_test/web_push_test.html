@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Push Test</title>
+</head>
+<body>
+    <h1>Web Push Test</h1>
+    <button id="subscribe">Subscribe for Notifications</button>
+
+    <script>
+        async function getVapidKey() {
+            try {
+                const res = await fetch("/vapid_public_key");
+                const data = await res.json();
+                return data.public_key;
+            } catch (err) {
+                console.error("Failed to fetch VAPID key:", err);
+                alert("Could not fetch VAPID key from server.");
+            }
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(async reg => {
+                    console.log('Service Worker registered:', reg);
+
+                    const VAPID_PUBLIC_KEY = await getVapidKey();
+
+                    document.getElementById('subscribe').addEventListener('click', async () => {
+                        try {
+                            const subscription = await reg.pushManager.subscribe({
+                                userVisibleOnly: true,
+                                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                            });
+
+                            const subscriptionPayload = {
+                                endpoint: subscription.endpoint,
+                                keys: subscription.toJSON().keys
+                            };
+
+                            // POST the subscription to FastAPI
+                            const res = await fetch("/subscribe", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(subscriptionPayload)
+                            });
+
+                            const data = await res.json();
+                            console.log(" Subscription sent to server:", data);
+                            alert("Subscribed successfully!");
+                        } catch (err) {
+                            console.error("Subscription failed:", err);
+                            alert("Failed to subscribe. Check console.");
+                        }
+                    });
+                })
+                .catch(err => console.error('Service Worker registration failed:', err));
+        } else {
+            alert('Service workers are not supported in this browser.');
+        }
+    </script>
+</body>
+</html>
