@@ -1,0 +1,53 @@
+# =============================
+# Python / FastAPI
+# =============================
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+
+# Environment files (secrets)
+.env
+
+# Logs
+*.log
+
+# Database / temporary files
+*.db
+*.sqlite
+*.pid
+*.sock
+*.rdb
+*.aof
+
+# =============================
+# Docker
+# =============================
+docker-compose.override.yml
+
+# =============================
+# IDE / editor files
+# =============================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# =============================
+# Misc
+# =============================
+.DS_Store
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# =============================
+# Push Service Specific
+# =============================
+# Generated VAPID keys
+generate_vapid_keys.py
+
+# Weird leftover file
+=5.0.0
