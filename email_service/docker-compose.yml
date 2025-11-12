@@ -1,0 +1,68 @@
+services:
+  # Email Service (NestJS) - Using CloudAMQP
+  email-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: email-service
+    ports:
+      - '3002:3002'
+    environment:
+      # Server
+      PORT: 3002
+      NODE_ENV: ${NODE_ENV:-development}
+      SERVICE_NAME: email-service
+
+      # CloudAMQP RabbitMQ (External)
+      RABBITMQ_URL: ${CLOUDAMQP_URL}
+      EMAIL_QUEUE: email.queue
+      FAILED_QUEUE: failed.queue
+      EXCHANGE_NAME: notifications.direct
+      PREFETCH_COUNT: 10
+
+      # SMTP Configuration
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME:-YourApp}
+
+      # Template Service
+      TEMPLATE_SERVICE_URL: ${TEMPLATE_SERVICE_URL:-http://template-service:3005}
+
+      # Circuit Breaker
+      CIRCUIT_BREAKER_THRESHOLD: 5
+      CIRCUIT_BREAKER_TIMEOUT: 60000
+      CIRCUIT_BREAKER_RESET_TIMEOUT: 30000
+
+      # Retry
+      MAX_RETRY_ATTEMPTS: 3
+      INITIAL_RETRY_DELAY: 1000
+      MAX_RETRY_DELAY: 60000
+      RETRY_MULTIPLIER: 2
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - notification-network
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  notification-network:
+    driver: bridge
