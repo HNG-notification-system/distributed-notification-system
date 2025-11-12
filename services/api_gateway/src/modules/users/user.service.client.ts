@@ -1,60 +1,74 @@
+// src/modules/users/user.service.client.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import config from '../../config/configuration';
+import { firstValueFrom, of } from 'rxjs';
+import { timeout, retry, catchError } from 'rxjs/operators';
+import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../infra/redis.service';
+import { User } from './user.types';
 
 @Injectable()
 export class UserServiceClient {
-  private readonly cfg = config();
   private readonly logger = new Logger(UserServiceClient.name);
-  private readonly cacheTTL = 300; // cache user info for 5 minutes
+  private readonly cacheTTL = 300; // 5 minutes
 
   constructor(
     private readonly httpService: HttpService,
     private readonly redis: RedisService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) { }
 
   private userCacheKey(userId: string) {
     return `usercache:${userId}`;
   }
 
-  async getUser(userId: string): Promise<any | null> {
+  private get baseUrl(): string | undefined {
+    return this.configService.get<string>('userService.url') || process.env.USER_SERVICE_URL;
+  }
+
+  async getUser(userId: string): Promise<User | null> {
     const key = this.userCacheKey(userId);
 
-    // 1) try Redis cache
+    // Try Redis cache first
     try {
       const cached = await this.redis.getKey(key);
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (err) {
-      this.logger.warn('Redis cache read failed', (err as any).message);
-      // continue to fetch fresh data
+      if (cached) return JSON.parse(cached) as User;
+    } catch (err: any) {
+      this.logger.warn('Redis read failed', err.message);
     }
 
-    // 2) fetch from User Service
-    const base = this.cfg.userService?.url || process.env.USER_SERVICE_URL;
-    if (!base) {
-      this.logger.error('No User Service URL configured (USER_SERVICE_URL)');
+    // Fallback to HTTP call
+    if (!this.baseUrl) {
+      this.logger.error('User Service URL is not configured');
       return null;
     }
 
     try {
-      const resp$ = this.httpService.get(`${base}/users/${userId}`);
-      const resp = await firstValueFrom(resp$);
-      const user = resp.data;
+      const resp$ = this.httpService
+        .get(`${this.baseUrl}/users/${userId}`)
+        .pipe(
+          timeout(5000),
+          retry(2),
+          catchError((err) => {
+            this.logger.error(`HTTP request failed`, err.message);
+            return of({ data: null });
+          }),
+        );
 
-      // store in cache
-      try {
-        await this.redis.setKey(key, JSON.stringify(user), this.cacheTTL);
-      } catch (err) {
-        this.logger.warn('Redis cache write failed', (err as any).message);
+      const resp = await firstValueFrom(resp$);
+      const user = resp.data as User | null;
+
+      if (user) {
+        try {
+          await this.redis.setKey(key, JSON.stringify(user), this.cacheTTL);
+        } catch (err: any) {
+          this.logger.warn('Redis write failed', err.message);
+        }
       }
 
       return user;
-    } catch (err) {
-      this.logger.error(`Failed fetching user ${userId}`, (err as any).message);
+    } catch (err: any) {
+      this.logger.error(`Failed to fetch user ${userId}`, err.message);
       return null;
     }
   }
