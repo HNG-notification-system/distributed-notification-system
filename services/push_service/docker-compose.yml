@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  push_service:
+    build: .
+    container_name: push_service
+    ports:
+      - "3004:3004"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 3004 --reload
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672" # RabbitMQ management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    restart: unless-stopped
+
+  

@@ -1,0 +1,18 @@
+fastapi
+uvicorn[standard]
+pika                 # RabbitMQ
+redis>=5.0.0             # Async Redis
+firebase-admin
+httpx                 # Async HTTP for User Service
+python-dotenv
+loguru                # Logging
+tenacity              # Retry/exponential backoff
+pybreaker             # Circuit breaker for FCM
+
+
+setuptools
+wheel
+
+pywebpush==1.14.0
+
+
