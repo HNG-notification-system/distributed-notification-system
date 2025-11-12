@@ -1,57 +1,43 @@
-# Build stage
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY yarn.lock ./
-COPY prisma ./prisma/
-
-# Install dependencies
-RUN yarn install --frozen-lockfile
-
-# Copy source code
-COPY . .
-
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Build application
-RUN yarn build
-
-# Production stage
-FROM node:20-alpine AS production
+FROM node:20-alpine
 
 WORKDIR /app
 
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-# Copy package files
+# Copy package files first
 COPY package*.json ./
-COPY yarn.lock ./
+COPY prisma ./prisma/
 
-# Install production dependencies only
-RUN yarn install --frozen-lockfile --production
+# Install all dependencies
+RUN npm install
 
-# Copy built application
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Generate Prisma Client
+RUN npx prisma generate
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
+# Copy source code
+COPY . .
 
-RUN chown -R nestjs:nodejs /app
+# Build the application
+RUN npm run build
 
-USER nestjs
+# Verify the build
+RUN echo "=== Build verification ===" && \
+    ls -la && \
+    echo "=== Dist contents ===" && \
+    ls -la dist/ && \
+    echo "=== Main files ===" && \
+    find dist/ -name "main.*" -type f
 
+# Use the node user that already exists in the image
+USER node
+
+# Expose port
 EXPOSE 3003
 
-# Health check
+# Health check (simplified for now)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3003/api/v1/health || exit 1
 
+# Start the app
 CMD ["node", "dist/main"]

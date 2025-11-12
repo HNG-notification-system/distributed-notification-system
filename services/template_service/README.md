@@ -1,98 +1,186 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+🎯 Template Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A high-performance microservice for managing notification templates across email, push, and SMS channels. Built with NestJS, featuring version control, Redis caching, and Handlebars templating.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+✨ Features
 
-## Description
+🚀 Multi-channel Templates – Email, push notifications, SMS
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+🔄 Version Control – Full audit trail with rollback capability
 
-## Project setup
+⚡ Redis Caching – Fast template retrieval
 
-```bash
-$ npm install
-```
+🎨 Handlebars Engine – Powerful variable substitution with custom helpers
 
-## Compile and run the project
+🔐 Role-Based Access – Admin and editor roles with internal service authentication
 
-```bash
-# development
-$ npm run start
+📚 OpenAPI Documentation – Interactive API docs via Swagger UI
 
-# watch mode
-$ npm run start:dev
+🐳 Docker Ready – Containerized deployment with Docker Compose
 
-# production mode
-$ npm run start:prod
-```
+🏗️ Enterprise Ready – Built with NestJS for scalability and maintainability
 
-## Run tests
+🏗️ Architecture
 
-```bash
-# unit tests
-$ npm run test
+NestJS microservice architecture with PostgreSQL persistence and Redis caching.
 
-# e2e tests
-$ npm run test:e2e
+🚀 Quick Start
+Prerequisites
 
-# test coverage
-$ npm run test:cov
-```
+Node.js 18+
 
-## Deployment
+PostgreSQL 14+
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Redis 7+
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Local Development
+# 1. Clone the repository
+git clone <repository-url>
+cd template-service
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+# 2. Install dependencies
+npm install
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
 
-## Resources
+# 4. Run database migrations
+npm run db:migrate
 
-Check out a few resources that may come in handy when working with NestJS:
+# 5. Start development server
+npm run start:dev
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
-## Support
+Service available at: http://localhost:3000
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Swagger API docs: http://localhost:3000/api/docs
 
-## Stay in touch
+Docker Deployment
+# Using Docker Compose
+docker-compose up -d
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Or build manually
+docker build -t template-service .
+docker run -d --name template-service -p 3000:3000 template-service
 
-## License
+⚙️ Configuration
+Environment Variables
+Variable	Description	Default
+DATABASE_URL	PostgreSQL connection string	postgresql://user:pass@localhost:5432/template_service
+REDIS_HOST	Redis server host	localhost
+REDIS_PORT	Redis server port	6379
+REDIS_PASSWORD	Redis password (optional)	-
+INTERNAL_SERVICE_KEY	Key for internal service communication	-
+NODE_ENV	Application environment	development
+API_PORT	Service port	3000
+Docker Compose Example
+version: '3.8'
+services:
+  template-service:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://user:pass@db:5432/template_service
+      REDIS_HOST: redis
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+    depends_on:
+      - db
+      - redis
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: template_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+
+📡 API Reference
+Authorization
+
+Internal Services: x-service-key: your-internal-service-key
+
+Admin / Editor Users (via API Gateway):
+
+x-user-role: admin | editor
+x-auth-verified: true
+x-user-id: user-uuid
+
+Key Endpoints
+Create Template (Admin Only)
+
+POST /templates
+
+Headers:
+x-user-role: admin
+
+Body Example:
+
+{
+  "template_code": "welcome_email",
+  "name": "Welcome Email",
+  "type": "email",
+  "subject": "Welcome, {{name}}!",
+  "body": "Hi {{name}}, click {{link}} to get started",
+  "variables": ["name", "link"],
+  "language": "en"
+}
+
+Preview Template (Internal Services)
+
+POST /templates/preview
+
+Headers:
+x-service-key: your-service-key
+
+Body Example:
+
+{
+  "template_code": "welcome_email",
+  "variables": {
+    "name": "Glory",
+    "link": "https://app.com"
+  }
+}
+
+
+Response:
+
+{
+  "success": true,
+  "data": {
+    "subject": "Welcome, Glory!",
+    "body": "Hi Glory, click https://app.com to get started"
+  },
+  "message": "Template rendered successfully"
+}
+
+Complete Endpoint List
+Method	Endpoint	Description	Auth
+POST	/templates	Create new template	Admin
+GET	/templates	List templates (paginated)	Admin / Editor
+GET	/templates/:id	Get template by ID	Admin / Editor
+PATCH	/templates/:id	Update template	Admin / Editor
+DELETE	/templates/:id	Soft delete template	Admin
+POST	/templates/preview	Render template preview	Internal Service
+GET	/templates/code/:code	Get template by code	Internal Service
+GET	/templates/:id/versions	Get version history	Admin / Editor
+POST	/templates/:id/versions/:version/revert	Revert to version	Admin / Editor
+🔐 Authorization Matrix
+Role	Create	Read	Update	Delete	Preview
+Admin	✅	✅	✅	✅	✅
+Editor	❌	✅	✅	❌	✅
+Internal Service	❌	✅	❌	❌	✅
