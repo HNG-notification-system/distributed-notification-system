@@ -25,7 +25,7 @@ RUN npm run build
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
     echo 'echo "Waiting for database to be ready..."' >> /app/start.sh && \
-    echo 'until PGPASSWORD=postgres psql -h postgres -U postgres -d template_service_db -c "SELECT 1;" > /dev/null 2>&1; do' >> /app/start.sh && \
+    echo 'until PGPASSWORD=postgres psql -h template-postgres -U postgres -d template_service_db -c "SELECT 1;" > /dev/null 2>&1; do' >> /app/start.sh && \
     echo '  echo "Database not ready yet - sleeping..."' >> /app/start.sh && \
     echo '  sleep 2' >> /app/start.sh && \
     echo 'done' >> /app/start.sh && \
