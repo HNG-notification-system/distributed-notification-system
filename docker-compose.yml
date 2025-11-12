@@ -64,19 +64,32 @@ services:
   api-gateway:
     container_name: api-gateway
     build:
-      context: .
-      dockerfile: Dockerfile.shared
-      target: node-app
-      args:
-        SERVICE_DIR: ./api-gateway
+      context: ./api-gateway
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    env_file:
-      - .env
+    environment:
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: api-gateway
+
+      # CloudAMQP (External - No local RabbitMQ needed)
+      RABBITMQ_URL: ${RABBITMQ_URL}
+
+      # Service URLs
+      USER_SERVICE_URL: http://user-service:3001
+      TEMPLATE_SERVICE_URL: http://template-service:3005
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+
+      # Rate Limiting
+      RATE_LIMIT_TTL: ${RATE_LIMIT_TTL:-60}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
     depends_on:
-      - user-service
-      - redis
-      - rabbitmq
+      user-service:
+        condition: service_started
     networks:
       - notification-network
     restart: unless-stopped
@@ -97,24 +110,28 @@ services:
   user-service:
     container_name: user-service
     build:
-      context: .
-      dockerfile: Dockerfile.shared
-      target: python-app
-      args:
-        SERVICE_DIR: ./user-service
+      context: ./user-service
+      dockerfile: Dockerfile
     ports:
       - "3001:3001"
-    env_file:
-      - .env
-      - ./user-service/.env
     environment:
+      PORT: 3001
+      SERVICE_NAME: user-service
+
+      # Database & Cache
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-notification_system}
       REDIS_URL: redis://redis:6379
-      CLOUDAMQP_URL: amqp://guest:guest@rabbitmq:5672
+
+      # CloudAMQP (External)
+      RABBITMQ_URL: ${RABBITMQ_URL}
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - notification-network
     restart: unless-stopped
@@ -129,24 +146,49 @@ services:
   email-service:
     container_name: email-service
     build:
-      context: .
-      dockerfile: Dockerfile.shared
-      target: node-app
-      args:
-        SERVICE_DIR: ./email-service
+      context: ./email-service
+      dockerfile: Dockerfile
     ports:
       - "3002:3002"
-    env_file:
-      - .env
     environment:
-      CLOUDAMQP_URL: amqp://guest:guest@rabbitmq:5672
+      PORT: 3002
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: email-service
+
+      # CloudAMQP (External - uses environment variable)
+      RABBITMQ_URL: ${RABBITMQ_URL}
       EMAIL_QUEUE: email.queue
       FAILED_QUEUE: failed.queue
       EXCHANGE_NAME: notifications.direct
+      PREFETCH_COUNT: 10
+
+      # SMTP
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FROM_EMAIL: ${FROM_EMAIL}
+      FROM_NAME: ${FROM_NAME:-YourApp}
+
+      # Template Service
       TEMPLATE_SERVICE_URL: http://template-service:3005
+
+      # Circuit Breaker
+      CIRCUIT_BREAKER_THRESHOLD: 5
+      CIRCUIT_BREAKER_TIMEOUT: 60000
+      CIRCUIT_BREAKER_RESET_TIMEOUT: 30000
+
+      # Retry
+      MAX_RETRY_ATTEMPTS: 3
+      INITIAL_RETRY_DELAY: 1000
+      MAX_RETRY_DELAY: 60000
+      RETRY_MULTIPLIER: 2
+
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      - template-service
-      - rabbitmq
+      template-service:
+        condition: service_started
     volumes:
       - ./email-service/logs:/app/logs
     networks:
@@ -169,23 +211,38 @@ services:
   push-service:
     container_name: push-service
     build:
-      context: .
-      dockerfile: Dockerfile.shared
-      target: node-app
-      args:
-        SERVICE_DIR: ./push-service
+      context: ./push-service
+      dockerfile: Dockerfile
     ports:
       - "3003:3003"
-    env_file:
-      - .env
     environment:
-      CLOUDAMQP_URL: amqp://guest:guest@rabbitmq:5672
+      PORT: 3003
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: push-service
+
+      # CloudAMQP (External)
+      RABBITMQ_URL: ${RABBITMQ_URL}
       PUSH_QUEUE: push.queue
       FAILED_QUEUE: failed.queue
+      PREFETCH_COUNT: 10
+
+      # Firebase Cloud Messaging
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID}
+
+      # Template Service
       TEMPLATE_SERVICE_URL: http://template-service:3005
+
+      # Circuit Breaker
+      CIRCUIT_BREAKER_THRESHOLD: 5
+
+      # Retry
+      MAX_RETRY_ATTEMPTS: 3
+
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      - template-service
-      - rabbitmq
+      template-service:
+        condition: service_started
     volumes:
       - ./push-service/logs:/app/logs
     networks:
@@ -217,8 +274,15 @@ services:
     env_file:
       - ./services/template_service/.env
     environment:
+      PORT: 3005
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVICE_NAME: template-service
+
+      # Database & Cache
       DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-notification_system}
       REDIS_URL: redis://redis:6379
+
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
@@ -233,6 +297,37 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # ==============================
+  # REVERSE PROXY (NGINX)
+  # ==============================
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 # ==============================
 # VOLUMES AND NETWORKS
