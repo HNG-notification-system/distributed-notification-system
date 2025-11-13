@@ -17,7 +17,7 @@ const testNotification = {
   notification_id: `test-${Date.now()}`,
   user_id: 'user123',
   template_id: '1',
-  to_email: 'test@example.com',
+  to_email: 'desmondesih@example.com',
   variables: {
     name: 'John Doe',
   },
