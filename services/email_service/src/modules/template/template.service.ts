@@ -37,12 +37,13 @@ export class TemplateService {
           correlation_id: correlationId,
         });
 
-        const url = `${this.configService.get('TEMPLATE_SERVICE_URL')}/templates/${templateId}`;
+        const url = `${this.configService.get('TEMPLATE_SERVICE_URL')}/templates/code/${templateId}`;
 
         const response = await firstValueFrom(
           this.httpService.get<ApiResponse<Template>>(url, {
             headers: {
               'X-Correlation-ID': correlationId || '',
+              'x-service-key': process.env.INTERNAL_SERVICE_KEY!,
             },
             timeout: 5000,
           }),

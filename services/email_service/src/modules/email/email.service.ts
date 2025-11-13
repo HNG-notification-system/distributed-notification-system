@@ -23,7 +23,6 @@ export class EmailService {
   private initializeTransporter(): void {
     const sendgridKey = this.configService.get<string>('SENDGRID_API_KEY');
     const mailgunKey = this.configService.get<string>('MAILGUN_API_KEY');
-
     if (sendgridKey) {
       this.provider = 'sendgrid';
       this.logger.log('Initialized SendGrid email provider');
@@ -36,13 +35,14 @@ export class EmailService {
       if (isNaN(smtpPort) || smtpPort <= 0 || smtpPort > 65535) {
         throw new Error(`Invalid SMTP_PORT: must be a number between 1 and 65535`);
       }
+
       this.transporter = nodemailer.createTransport({
         host: this.configService.get<string>('SMTP_HOST'),
         port: smtpPort,
         secure: smtpPort === 465, // true for 465, false for other ports
         auth: {
           user: this.configService.get<string>('SMTP_USER', ''),
-          pass: this.configService.get<string>('SMTP_PASS', ''),
+          pass: this.configService.get<string>('SMTP_PASSWORD', ''),
         },
         tls: {
           // Only reject invalid certs in production; allow self-signed in development if needed
