@@ -88,8 +88,7 @@ services:
       RATE_LIMIT_TTL: ${RATE_LIMIT_TTL:-60}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
     depends_on:
-      user-service:
-        condition: service_started
+      - user-service
     networks:
       - notification-network
     restart: unless-stopped
@@ -128,10 +127,8 @@ services:
       # JWT
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     networks:
       - notification-network
     restart: unless-stopped
@@ -187,8 +184,7 @@ services:
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      template-service:
-        condition: service_started
+      - template-service
     volumes:
       - ./email-service/logs:/app/logs
     networks:
@@ -241,8 +237,7 @@ services:
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      template-service:
-        condition: service_started
+      - template-service
     volumes:
       - ./push-service/logs:/app/logs
     networks:
@@ -284,10 +279,8 @@ services:
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     networks:
       - notification-network
     restart: "unless-stopped"
