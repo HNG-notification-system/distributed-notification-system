@@ -41,6 +41,21 @@ services:
       - notification-network
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
   # ==============================
   # MICROSERVICES
   # ==============================
@@ -250,10 +265,14 @@ services:
   template-service:
     container_name: template-service
     build:
-      context: ./template-service
+      context: ./services/template_service
       dockerfile: Dockerfile
+      args:
+        SERVICE_DIR: ./services/template_service
     ports:
-      - "3005:3005"
+      - "3005:3003"
+    env_file:
+      - ./services/template_service/.env
     environment:
       PORT: 3005
       NODE_ENV: ${NODE_ENV:-production}
@@ -271,15 +290,9 @@ services:
         condition: service_healthy
     networks:
       - notification-network
-    restart: unless-stopped
+    restart: "unless-stopped"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:3005/health',(r)=>process.exit(r.statusCode===200?0:1))",
-        ]
+      test: ["CMD", "curl", "-f", "http://localhost:3003/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
