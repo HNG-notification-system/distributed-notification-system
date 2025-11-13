@@ -2,7 +2,7 @@
 export default () => ({
   port: parseInt(process.env.PORT || '3000', 10),
   rabbit: {
-    url: process.env.CLOUDAMQP_URL || process.env.RABBIT_URL || 'amqp://guest:guest@rabbitmq:5672',
+    url: process.env.CLOUDAMQP_URL || process.env.RABBIT_URL || 'amqps://bfvrgswc:X1PaMHdb5txqad3uxJ_2LIirjK1WiTgG@hawk.rmq.cloudamqp.com/bfvrgswc',
     exchange: process.env.RABBIT_EXCHANGE || 'notifications.direct',
   },
   redis: {
