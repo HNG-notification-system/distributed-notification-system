@@ -71,8 +71,16 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         await channel.prefetch(prefetchCount);
 
         // Assert queues
-        await channel.assertQueue(emailQueue, { durable: true });
-        await channel.assertQueue(failedQueue, { durable: true });
+        await channel.assertQueue(emailQueue, {
+          durable: true,
+          arguments: {
+            'x-dead-letter-exchange': 'notifications.direct', // ❌ Remove this
+            'x-dead-letter-routing-key': 'failed',
+          },
+        });
+        await channel.assertQueue(failedQueue, {
+          durable: true,
+        });
 
         this.logger.log('RabbitMQ queues asserted', {
           email_queue: emailQueue,
@@ -108,12 +116,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   private async processMessage(msg: ConsumeMessage, channel: any): Promise<void> {
     const startTime = Date.now();
     let notification: EmailNotificationDto | null = null;
-
+    
     try {
       // Parse message
       const content = msg.content.toString();
       notification = JSON.parse(content) as EmailNotificationDto;
-
+      console.log(notification)
       const retryCount = notification.retry_count || 0;
 
       this.logger.log('Processing email notification', {
@@ -147,7 +155,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
             throw new Error('FROM_EMAIL is required but not configured');
           }
           const emailPayload: EmailPayload = {
-            to: notification.to_email,
+            to: notification.variables.__user.email,
             from: fromEmail,
             subject,
             html: body,

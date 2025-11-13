@@ -19,9 +19,8 @@ export class NotificationProducer {
       // Optional: use notification type to decide routing key dynamically
       const routingKey =
         notification.type === 'push' ? 'push' : 'email';
-
       const message = Buffer.from(JSON.stringify(notification));
-
+      
       // Publish to the correct exchange
       channel.publish(exchange, routingKey, message, { persistent: true });
 

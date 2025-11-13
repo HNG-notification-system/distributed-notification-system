@@ -4,7 +4,7 @@ export class CreateNotificationDto {
   @IsString() id: string;
   @IsString() userId: string;
   @IsIn(['email','push']) type: 'email' | 'push';
-  @IsString() template: string;
+  @IsString() template_id: string;
   @IsObject() variables: Record<string, any>;
   @IsOptional() @IsString() priority?: 'low' | 'normal' | 'high';
   @IsOptional() @IsISO8601() scheduledAt?: string;
