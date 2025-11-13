@@ -66,6 +66,8 @@ export class NotificationsService {
       pushToken,
     };
 
+    dto.template_id = dto.template || ''
+
     // 5) Handle scheduled notifications
     if (dto.scheduledAt) {
       const when = Date.parse(dto.scheduledAt);
