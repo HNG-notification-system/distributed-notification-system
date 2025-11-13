@@ -1,5 +1,4 @@
 # API Gateway Service for Distributed Notification System
-[![Ask DeepWiki](https://devin.ai/assets/askdeepwiki.png)](https://deepwiki.com/HNG-notification-system/distributed-notification-system/tree/main/services/api_gateway)
 
 This service is a NestJS application that serves as the primary ingress point for the distributed notification system. It is responsible for accepting, validating, and queueing notification requests from clients.
 
