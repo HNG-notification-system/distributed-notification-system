@@ -1,169 +1,218 @@
-Overview
+# User Service for Distributed Notification System
 
-This PR introduces the User Service, a dedicated microservice responsible for managing user data, device tokens, and notification preferences within the distributed notification system.
+This document provides a comprehensive overview of the User Service, a dedicated microservice within the HNG Distributed Notification System. It manages user data, notification preferences, and device tokens, serving as a foundational component for ensuring that notifications are accurately routed and personalized.
 
-The service ensures each user’s contact information and delivery preferences (email or push) are properly stored, validated, and made accessible to other services (like the API Gateway, Email Service, and Push Service) through well-defined REST APIs.
+  
 
-Features
-User Management
+* * *
 
-Register new users with validation and hashed passwords
+## Overview
 
-Retrieve user profiles by ID
+The User Service ensures that each user’s contact information and delivery preferences (email or push) are properly stored, validated, and made accessible to other services (e.g., API Gateway, Email Service, Push Service) via RESTful APIs. It is built with FastAPI, providing a highly performant, asynchronous, and easily maintainable architecture.
 
-Update and manage user contact details (email, phone)
+* * *
 
-Notification Preferences
+##   
 
-Store and manage user notification preferences for each channel (email, push)
+## Features
 
-Support opt-in/opt-out behavior per channel (e.g., only email, only push, both)
+###   
 
-Handle quiet hours configuration (quiet_hours_start and quiet_hours_end)
+### User Management
 
-Automatically create default preferences on user creation
+*   Register new users with validation and hashed passwords.
+    
+*   Retrieve user profiles by ID.
+    
+*   Update and manage user contact details (email, phone, etc.).
+    
 
-Device Management
+### Notification Preferences
 
-Register, activate, and deactivate user devices
+*   Store and manage user notification preferences for each channel (email, push).
+    
+*   Support opt-in/opt-out behavior per channel.
+    
+*   Handle quiet hours configuration (`quiet_hours_start` and `quiet_hours_end`).
+    
+*   Automatically create default preferences upon user registration.
+    
 
-Store push tokens for web, iOS, and Android platforms
+### Device Management
 
-Prevent duplicate device tokens through unique constraints
+*   Register, activate, and deactivate user devices.
+    
+*   Store push tokens for web, iOS, and Android platforms.
+    
+*   Prevent duplicate tokens using unique constraints.
+    
 
-Infrastructure & Performance
+### Infrastructure & Performance
 
-PostgreSQL for persistent user and preference storage
+*   **PostgreSQL** for persistent user and preference storage.
+    
+*   **Redis** caching for rapid access to frequently used user data.
+    
+*   Built-in cache invalidation on updates.
+    
+*   Health check endpoint (`/health`) for service monitoring.
+    
+*   Configurable through `.env` and Dockerized for deployment ease.
+    
 
-Redis caching layer for fast retrieval of frequently accessed user data
+### Architecture Alignment
 
-Built-in cache invalidation when user data or preferences are updated
+*   Follows API structure (`/api/v1/...`).
+    
+*   Uses async SQLAlchemy and FastAPI for concurrency and performance.
+    
+*   Validates requests/responses with Pydantic v2.
+    
+*   Structured error handling and standardized response formats.
+    
+*   Integrates seamlessly with the distributed message queue through the API Gateway.
+    
 
-Health check endpoint (/health) for service monitoring and uptime verification
+* * *
 
-Configurable via .env file with Dockerized environment setup
+## Tech Stack
 
-Architecture Alignment
+| Component | Technology |
+| --- | --- |
+| Framework | FastAPI |
+| Language | Python 3.11 |
+| Database | PostgreSQL (async SQLAlchemy + asyncpg) |
+| Cache | Redis |
+| Containerization | Docker & Docker Compose |
+| Validation | Pydantic v2 |
+| Docs | Auto-generated Swagger/OpenAPI |
 
-Follows  API structure (/api/v1/...)
+* * *
 
-Uses async SQLAlchemy and FastAPI for high performance
+## API Endpoints
 
-Includes proper request/response validation using Pydantic v2
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | /api/v1/users/ | Register a new user with preferences |
+| GET | /api/v1/users/{id} | Retrieve user details |
+| PUT | /api/v1/users/{id}/preferences | Update notification preferences |
+| POST | /api/v1/users/{id}/devices | Register or update a device token |
+| GET | /health | Check service and dependency health |
 
-Structured error handling and consistent response format (success, data, message, error)
+### Interactive Docs
 
-Fully compatible with the distributed message queue flow via the API Gateway
+Available automatically via FastAPI at:  
+`http://localhost:3001/docs`
 
-API Endpoints
-Method	Endpoint	Description
-POST	/api/v1/users/	Register a new user with preferences
-GET	/api/v1/users/{id}	Retrieve user details
-PUT	/api/v1/users/{id}/preferences	Update notification preferences
-POST	/api/v1/users/{id}/devices	Register or update a device token
-GET	/health	Service health and dependency check
+* * *
 
+## Running Locally
 
-Technical Stack
+### Clone the Repository
 
-Framework: FastAPI (Python 3.11)
+    git clone https://github.com/hng-notification-system/distributed-notification-system.git
+    cd distributed-notification-system/services/user_service
+    
 
-Database: PostgreSQL (async SQLAlchemy)
+### Copy Environment Variables
 
-Cache: Redis (for user data and rate limiting)
+    cp .env.example .env
+    
 
-Containerization: Docker & Docker Compose
+### Build and Start with Docker Compose
 
-Validation: Pydantic v2 models with pattern constraints
-
-Documentation: Auto-generated Swagger/OpenAPI via FastAPI
-
-Testing & Async Handling: asyncio for concurrent request processing
-
-Running Locally
-
-Clone the repository:
-
-git clone <your-repo-url>
-cd services/user_service
-
-
-Copy the environment variables template:
-
-cp .env.example .env
-
-
-Build and start the service using Docker Compose:
-
-docker-compose up --build
-
+    docker-compose up --build
+    
 
 This will start:
 
-User Service on port 3001
+*   **User Service** → port **3001**
+    
+*   **PostgreSQL** and **Redis** dependencies
+    
 
-PostgreSQL and Redis dependencies
+Access at:  
+`http://localhost:3001`
 
-Sample Requests
-Register a new user
-curl -X POST http://localhost:3001/api/v1/users/ \
--H "Content-Type: application/json" \
--d '{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "StrongPass123!",
-  "preferences": {"email": true, "push": false}
-}'
+* * *
 
-Retrieve a user by ID
-curl -X GET http://localhost:3001/api/v1/users/<user_id>
+## Sample Requests
 
-Update notification preferences
-curl -X PUT http://localhost:3001/api/v1/users/<user_id>/preferences \
--H "Content-Type: application/json" \
--d '{
-  "email": false,
-  "push": true,
-  "quiet_hours_start": "22:00",
-  "quiet_hours_end": "07:00"
-}'
+### Register a New User
 
-Register or update a device token
-curl -X POST http://localhost:3001/api/v1/users/<user_id>/devices \
--H "Content-Type: application/json" \
--d '{
-  "token": "fcm_device_token_123",
-  "platform": "android",
-  "active": true
-}'
+    curl -X POST http://localhost:3001/api/v1/users/ \
+    -H "Content-Type: application/json" \
+    -d '{
+      "name": "John Doe",
+      "email": "john@example.com",
+      "password": "StrongPass123!",
+      "preferences": {"email": true, "push": false}
+    }'
+    
 
-Health Check
-curl -X GET http://localhost:3001/health
+### Retrieve a User by ID
 
-Testing & Development Tips
+    curl -X GET http://localhost:3001/api/v1/users/<user_id>
+    
 
-Use async SQLAlchemy sessions for database interactions.
+### Update Notification Preferences
 
-Redis caching ensures high performance; always invalidate cache after updates.
+    curl -X PUT http://localhost:3001/api/v1/users/<user_id>/preferences \
+    -H "Content-Type: application/json" \
+    -d '{
+      "email": false,
+      "push": true,
+      "quiet_hours_start": "22:00",
+      "quiet_hours_end": "07:00"
+    }'
+    
 
-Ensure device tokens are unique to avoid duplicate notifications.
+### Register or Update a Device Token
 
-All API requests/responses are validated using Pydantic models.
+    curl -X POST http://localhost:3001/api/v1/users/<user_id>/devices \
+    -H "Content-Type: application/json" \
+    -d '{
+      "token": "fcm_device_token_123",
+      "platform": "android",
+      "active": true
+    }'
+    
 
-Auto-generated API docs are available at:
+### Health Check
 
-http://localhost:3001/docs
+    curl -X GET http://localhost:3001/health
+    
 
-Environment Configuration
+* * *
 
-The service is configurable via a .env file:
+## Environment Configuration
 
-PORT=3001
-DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/users
-REDIS_URL=redis://redis:6379/0
-SECRET_KEY=<your-secret-key>
+| Variable | Description | Default Value |
+| --- | --- | --- |
+| PORT | Application port | 3001 |
+| DATABASE_URL | PostgreSQL connection string | postgresql+asyncpg://postgres:postgres@db:5432/user_service_db |
+| REDIS_URL | Redis connection | redis://redis:6379/0 |
+| SECRET_KEY | Secret key for encryption/auth | your_super_secret_key_here |
+| IDEMPOTENCY_TTL | TTL for idempotency keys | 3600 |
 
-Conclusion
+* * *
 
-The User Service provides a reliable foundation for user management and notification preference handling in a distributed microservices architecture.
-It integrates seamlessly with the Push Service, Email Service, and other components, ensuring consistent, secure, and performant delivery of notifications.
+## Testing & Development Tips
+
+*   Use async SQLAlchemy sessions for database queries.
+    
+*   Invalidate Redis cache whenever user data changes.
+    
+*   Ensure device tokens are unique to avoid duplicate pushes.
+    
+*   API requests/responses are validated using Pydantic models.
+    
+*   Auto-generated API docs available at:  
+    `http://localhost:3001/docs`
+    
+
+* * *
+
+## Conclusion
+
+The User Service is a reliable, scalable, and modular backbone for user and notification management within the Distributed Notification System. It integrates seamlessly with other microservices such as the Gateway, Email, and Push Services, ensuring consistent, secure, and efficient notification delivery across platforms.
