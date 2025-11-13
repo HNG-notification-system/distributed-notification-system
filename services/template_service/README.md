@@ -1,4 +1,4 @@
-# 📄 Template Service
+# Template Service
 
 The Template Service is a core component of the Distributed Notification System.  
 It is responsible for storing, managing, and retrieving message templates used across various communication channels (e.g., email, push notifications, SMS).  
